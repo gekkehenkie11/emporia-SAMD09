@@ -1,3 +1,6 @@
+#include "stdio.h"
+#include <stdint.h>
+
 void ConfigureADC()
 {
     uint8_t* CTRLA = (uint8_t*)0x42002000;

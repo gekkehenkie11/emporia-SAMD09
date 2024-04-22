@@ -1,7 +1,7 @@
 #include "stdio.h"
 #include <stdint.h>
 
-int main(void) {
+void adc_config() {
 typedef volatile       uint8_t  RwReg8;  /**< Read-Write  8-bit register (volatile unsigned int) */
 typedef volatile       uint16_t RwReg16; /**< Read-Write 16-bit register (volatile unsigned int) */
 typedef volatile       uint32_t RwReg;   /**< Read-Write 32-bit register (volatile unsigned int) */
@@ -31,3 +31,4 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
     REG_ADC_EVCTRL = 1;
   do {
   }  while (REG_ADC_STATUS != 0);
+}

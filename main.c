@@ -20,7 +20,7 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 
     REG_ADC_CTRLA = 1;
   do {
-  }   while (REG_ADC_STATUS< 0);
+  }   while (REG_ADC_STATUS != 0);
     	 
     REG_ADC_CALIB  = (*((uint16_t*)0x806024) << 5) & 0x700 | *((uint16_t*)0x806020) >> 27 | (*((uint16_t*)0x806024) << 5) & 0xff | (*((uint16_t*)0x806024) & 7) << 5;
     REG_ADC_SAMPCTRL = 1;
@@ -30,4 +30,4 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
     REG_ADC_INTFLAG = 0xF;
     REG_ADC_EVCTRL = 1;
   do {
-  }  while (REG_ADC_STATUS< 0);
+  }  while (REG_ADC_STATUS != 0);

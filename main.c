@@ -38,7 +38,7 @@ void config_Sysctrl_PM_and_GCLK ()
     do {
     } while (((REG_SYSCTRL_PCLKSR) & 0x10) == 0); //DFLLRDY
     
-    uint32_t calibdat = *((uint16_t*)0x806024) >> 0x1a;
+    uint32_t calibdat = *((uint32_t*)0x806024) >> 0x1a;
     if (calibdat == 0x3f) 
     	calibdat = 0x1f;
     	

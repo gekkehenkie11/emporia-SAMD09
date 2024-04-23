@@ -74,8 +74,10 @@ void adc_config() {
     REG_ADC_CTRLA = 1;
   do {
   }   while (REG_ADC_STATUS != 0);
-    	 
-    REG_ADC_CALIB  = (*((uint32_t*)0x806024) << 5) & 0x700 | *((uint32_t*)0x806020) >> 27 | (*((uint32_t*)0x806024) << 5) & 0xff | ((*((uint32_t*)0x806024) & 7) << 5);
+    
+    
+    uint32_t tmp =  (*((uint32_t*)0x806024) << 5) & 0x700 | *((uint32_t*)0x806020) >> 27 | (*((uint32_t*)0x806024) << 5) & 0xff | ((*((uint32_t*)0x806024) & 7) << 5);	 
+    REG_ADC_CALIB = tmp;    
     REG_ADC_SAMPCTRL = 1;
     REG_ADC_REFCTRL = 3;
     REG_ADC_INPUTCTRL = 0x1270000;

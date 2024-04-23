@@ -43,7 +43,7 @@ void config_Sysctrl_PM_and_GCLK ()
     	calibdat = 0x1f;
     	
     calibdat = calibdat << 10;
-    REG_SYSCTRL_DFLLVAL = calibdat | *((uint16_t*)0x806028) & 0x3ff;
+    REG_SYSCTRL_DFLLVAL = calibdat | *((uint32_t*)0x806028) & 0x3ff;
     REG_SYSCTRL_DFLLCTRL = 2;
     
     do {

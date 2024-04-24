@@ -40,6 +40,66 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 #define REG_TC1_STATUS             (*(RoReg8 *)0x4200180FUL) /**< \brief (TC1) Status */
 #define REG_TC1_COUNT16_CC0        (*(RwReg16*)0x42001818UL) /**< \brief (TC1) COUNT16 Compare/Capture 0 */
 
+#define REG_PORT_DIR	            (*(RwReg  *)0x41004400UL)
+#define REG_PORT_OUT	            (*(RwReg  *)0x41004410UL) 
+#define REG_PINCFG2	            (*(RwReg8 *)0x41004442UL) 
+#define REG_PINCFG3	            (*(RwReg8 *)0x41004443UL) 
+#define REG_PINCFG4	            (*(RwReg8 *)0x41004444UL) 
+#define REG_PINCFG5	            (*(RwReg8 *)0x41004445UL) 
+#define REG_PINCFG6	            (*(RwReg8 *)0x41004446UL) 
+#define REG_PINCFG7	            (*(RwReg8 *)0x41004447UL) 
+#define REG_PINCFG8	            (*(RwReg8 *)0x41004448UL) 
+#define REG_PINCFG9	            (*(RwReg8 *)0x41004449UL) 
+#define REG_PINCFG10	            (*(RwReg8 *)0x4100444AUL) 
+#define REG_PINCFG11	            (*(RwReg8 *)0x4100444BUL) 
+
+#define REG_PINCFG14	            (*(RwReg8 *)0x4100444EUL) 
+#define REG_PINCFG15	            (*(RwReg8 *)0x4100444FUL) 
+#define REG_PINCFG22	            (*(RwReg8 *)0x41004456UL) 
+#define REG_PINCFG23	            (*(RwReg8 *)0x41004457UL) 
+#define REG_PINCFG25	            (*(RwReg8 *)0x41004459UL) 
+#define REG_PINCFG27	            (*(RwReg8 *)0x4100445BUL) 
+#define REG_PINCFG28	            (*(RwReg8 *)0x4100445CUL) 
+#define REG_PINCFG30	            (*(RwReg8 *)0x4100445EUL) 
+#define REG_PINCFG31	            (*(RwReg8 *)0x4100445FUL) 
+
+#define REG_PORT_PMUX1             (*(RwReg8 *)0x41004431UL) 
+#define REG_PORT_PMUX2	            (*(RwReg8 *)0x41004432UL) 
+#define REG_PORT_PMUX3	            (*(RwReg8 *)0x41004433UL) 
+#define REG_PORT_PMUX5	            (*(RwReg8 *)0x41004435UL) 
+#define REG_PORT_PMUX7	            (*(RwReg8 *)0x41004437UL) 
+#define REG_PORT_PMUX11            (*(RwReg8 *)0x4100443BUL) 
+
+
+void config_PORT()
+{
+	REG_PORT_DIR = 0x3030000;
+	REG_PORT_OUT = 0xC00000;
+	REG_PINCFG2 = 1;
+	REG_PINCFG2 = 1;
+	REG_PINCFG4 = 1;	
+	REG_PINCFG5 = 1;
+	REG_PINCFG6 = 1;
+	REG_PINCFG7 = 1;
+	REG_PINCFG8 = 4;
+	REG_PINCFG9 = 4;
+	REG_PINCFG10 = 1;
+	REG_PINCFG14 = 1;						
+	REG_PINCFG15 = 1;	
+	REG_PINCFG22 = 5;
+	REG_PINCFG23 = 5;	
+	REG_PINCFG25 = 4;
+	REG_PINCFG27 = 4;	
+	REG_PINCFG28 = 4;
+	REG_PINCFG30 = 4;		
+	REG_PINCFG31 = 4;	
+	REG_PORT_PMUX1 = 0x11;	 
+	REG_PORT_PMUX2 = 0x11;
+	REG_PORT_PMUX3 = 0x11;
+	REG_PORT_PMUX5 = 0x11;
+	REG_PORT_PMUX7 = 0x11;
+	REG_PORT_PMUX11 = 0x22;					
+}
 
 void ConfigureTimerCounter1 () {
 	REG_TC1_CTRLA = 1; //SWRST
@@ -125,6 +185,7 @@ void adc_config() {
 int main()
 {
 	REG_NVMCTRL_CTRLB = 6;
+	config_PORT();
 	config_Sysctrl_PM_and_GCLK ();
 	Config_NVMCTRL();
 	config_EventSystem();

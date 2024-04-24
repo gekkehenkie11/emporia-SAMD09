@@ -56,7 +56,7 @@ void ConfigureTimerCounter1 () {
 
 void Config_NVMCTRL ()
 {
-	REG_NVMCTRL_CTRLB = 0x82;
+	REG_NVMCTRL_CTRLB = 0x82; //1000 0010, Write commands must be issued through the CMD register. 1 wait states for a read operation
 }
 
 void config_EventSystem ()

@@ -29,68 +29,76 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 
 #define REG_PM_APBCMASK            (*(RwReg  *)0x40000420UL) /**< \brief (PM) APBC Mask */
 
+#define REG_NVMCTRL_CTRLB          (*(RwReg  *)0x41004004UL) /**< \brief (NVMCTRL) Control B */
+
+void Config_NVMCTRL ()
+{
+	REG_NVMCTRL_CTRLB = 0x82;
+
+}
 
 void config_Sysctrl_PM_and_GCLK ()
 {
-    REG_SYSCTRL_OSC32K = 0;
-    REG_SYSCTRL_DFLLCTRL = REG_SYSCTRL_DFLLCTRL & 0xFF7F;
+	REG_SYSCTRL_OSC32K = 0;
+	REG_SYSCTRL_DFLLCTRL = REG_SYSCTRL_DFLLCTRL & 0xFF7F;
     
-    do {
-    } while (((REG_SYSCTRL_PCLKSR) & 0x10) == 0); //DFLLRDY
+	do {
+	} while (((REG_SYSCTRL_PCLKSR) & 0x10) == 0); //DFLLRDY
     
-    uint32_t calibdat = *((uint32_t*)0x806024) >> 0x1a;
-    if (calibdat == 0x3f) 
-    	calibdat = 0x1f;
+	uint32_t calibdat = *((uint32_t*)0x806024) >> 0x1a;
+	if (calibdat == 0x3f) 
+		calibdat = 0x1f;
     	
-    calibdat = calibdat << 10;
-    REG_SYSCTRL_DFLLVAL = calibdat | *((uint32_t*)0x806028) & 0x3ff;
-    REG_SYSCTRL_DFLLCTRL = 2;
+	calibdat = calibdat << 10;
+	REG_SYSCTRL_DFLLVAL = calibdat | *((uint32_t*)0x806028) & 0x3ff;
+	REG_SYSCTRL_DFLLCTRL = 2;
     
-    do {
-    } while (((REG_SYSCTRL_PCLKSR) & 0x10) == 0); //DFLLRDY
+	do {
+	} while (((REG_SYSCTRL_PCLKSR) & 0x10) == 0); //DFLLRDY
     
-    REG_GCLK_GENCTRL = 0x10700;
+	REG_GCLK_GENCTRL = 0x10700;
     
-    do {
-    } while (REG_GCLK_STATUS != 0);
+	do {
+	} while (REG_GCLK_STATUS != 0);
     
-    REG_GCLK_GENCTRL = 0x30701;
-    REG_GCLK_GENDIV = 0x301;
+	REG_GCLK_GENCTRL = 0x30701;
+	REG_GCLK_GENDIV = 0x301;
     
-    do {
-    } while (REG_GCLK_STATUS != 0);
+	do {
+	} while (REG_GCLK_STATUS != 0);
     
-    REG_GCLK_CLKCTRL = 0x4007;
-    REG_GCLK_CLKCTRL += 0x108;
-    REG_GCLK_CLKCTRL += 3;    
-    REG_GCLK_CLKCTRL += 1;    
+	REG_GCLK_CLKCTRL = 0x4007;
+	REG_GCLK_CLKCTRL += 0x108;
+	REG_GCLK_CLKCTRL += 3;    
+	REG_GCLK_CLKCTRL += 1;    
     
-    REG_PM_APBCMASK = 0x14A; 
-    REG_PM_APBCMASK = 0; 
+	REG_PM_APBCMASK = 0x14A; 
+	REG_PM_APBCMASK = 0; 
 }
 
 void adc_config() {
 
-    REG_ADC_CTRLA = 1;
-  do {
-  }   while (REG_ADC_STATUS != 0);
+	REG_ADC_CTRLA = 1;
+	do {
+	}   while (REG_ADC_STATUS != 0);
     
     
-    uint32_t tmp =  (*((uint32_t*)0x806024) << 5) & 0x700 | *((uint32_t*)0x806020) >> 27 | (*((uint32_t*)0x806024) << 5) & 0xff | ((*((uint32_t*)0x806024) & 7) << 5);	 
-    REG_ADC_CALIB = tmp;    
-    REG_ADC_SAMPCTRL = 1;
-    REG_ADC_REFCTRL = 3;
-    REG_ADC_INPUTCTRL = 0x1270000;
-    REG_ADC_CTRLB = 0x101;
-    REG_ADC_INTFLAG = 0xF;
-    REG_ADC_EVCTRL = 1;
-  do {
-  }  while (REG_ADC_STATUS != 0);
+	uint32_t tmp =  (*((uint32_t*)0x806024) << 5) & 0x700 | *((uint32_t*)0x806020) >> 27 | (*((uint32_t*)0x806024) << 5) & 0xff | ((*((uint32_t*)0x806024) & 7) << 5);	 
+	REG_ADC_CALIB = tmp;    
+	REG_ADC_SAMPCTRL = 1;
+	REG_ADC_REFCTRL = 3;
+	REG_ADC_INPUTCTRL = 0x1270000;
+	REG_ADC_CTRLB = 0x101;
+	REG_ADC_INTFLAG = 0xF;
+	REG_ADC_EVCTRL = 1;
+	do {
+	}  while (REG_ADC_STATUS != 0);
 }
 
 int main()
 {
 	config_Sysctrl_PM_and_GCLK ();
+	Config_NVMCTRL();
 	adc_config();
 	return 0 ;
 }

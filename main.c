@@ -34,6 +34,26 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 #define REG_EVSYS_CHANNEL          (*(RwReg  *)0x42000404UL) /**< \brief (EVSYS) Channel */
 #define REG_EVSYS_USER             (*(RwReg16*)0x42000408UL) /**< \brief (EVSYS) User Multiplexer */
 
+#define REG_TC1_CTRLA              (*(RwReg16*)0x42001800UL) /**< \brief (TC1) Control A */
+#define REG_TC1_EVCTRL             (*(RwReg16*)0x4200180AUL) /**< \brief (TC1) Event Control */
+#define REG_TC1_INTFLAG            (*(RwReg8 *)0x4200180EUL) /**< \brief (TC1) Interrupt Flag Status and Clear */
+#define REG_TC1_STATUS             (*(RoReg8 *)0x4200180FUL) /**< \brief (TC1) Status */
+#define REG_TC1_COUNT16_CC0        (*(RwReg16*)0x42001818UL) /**< \brief (TC1) COUNT16 Compare/Capture 0 */
+
+
+void ConfigureTimerCounter1 () {
+	REG_TC1_CTRLA = 1; //SWRST
+	do {
+	} while (REG_TC1_STATUS >= 0x80); //We defined it as unsigned, checking for bit 7, SYNCBUSY.
+
+	REG_TC1_CTRLA = 0x60; //0110 0000 Match PWM, 16 bit mode
+	REG_TC1_COUNT16_CC0 = 0x4C; //The period.
+	REG_TC1_INTFLAG = 0x3B; //clear flags
+	REG_TC1_EVCTRL = 0x100; // bit 8 = Overflow/Underflow event is enabled and will be generated for every counter overflow/underflow.
+	do {
+	} while (REG_TC1_STATUS >= 0x80); //We defined it as unsigned, checking for bit 7, SYNCBUSY.
+}
+
 void Config_NVMCTRL ()
 {
 	REG_NVMCTRL_CTRLB = 0x82;
@@ -109,5 +129,6 @@ int main()
 	Config_NVMCTRL();
 	config_EventSystem();
 	adc_config();
+	ConfigureTimerCounter1 ();
 	return 0 ;
 }

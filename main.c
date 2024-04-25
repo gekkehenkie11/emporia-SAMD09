@@ -73,10 +73,10 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 
 void config_PORT()
 {
-	REG_PORT_DIR = 0x3030000;
-	REG_PORT_OUT = 0xC00000;
+	REG_PORT_DIR = 0x3030000; //00000011 00000011 00000000 00000000, so outputs are pin 16, 17, 24, 25. Rest is input.
+	REG_PORT_OUT = 0xC00000; // 00000000 11000000 00000000 00000000, so 22 and 23 driven high, rest driven low.
 	REG_PINCFG2 = 1;
-	REG_PINCFG2 = 1;
+	REG_PINCFG3 = 1;
 	REG_PINCFG4 = 1;	
 	REG_PINCFG5 = 1;
 	REG_PINCFG6 = 1;
@@ -84,6 +84,7 @@ void config_PORT()
 	REG_PINCFG8 = 4;
 	REG_PINCFG9 = 4;
 	REG_PINCFG10 = 1;
+	REG_PINCFG11 = 1;
 	REG_PINCFG14 = 1;						
 	REG_PINCFG15 = 1;	
 	REG_PINCFG22 = 5;

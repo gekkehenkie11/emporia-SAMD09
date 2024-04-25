@@ -244,12 +244,20 @@ void adc_config() {
         //Load ADC factory calibration values
 	uint32_t tmp =  (*((uint32_t*)0x806024) << 5) & 0x700 | *((uint32_t*)0x806020) >> 27 | (*((uint32_t*)0x806024) << 5) & 0xff | ((*((uint32_t*)0x806024) & 7) << 5);	 
 	REG_ADC_CALIB = tmp;    
-	REG_ADC_SAMPCTRL = 1;
-	REG_ADC_REFCTRL = 3;
-	REG_ADC_INPUTCTRL = 0x1270000;
-	REG_ADC_CTRLB = 0x101;
-	REG_ADC_INTFLAG = 0xF;
-	REG_ADC_EVCTRL = 1;
+	REG_ADC_SAMPCTRL = 1; //Sampling Time Length
+	REG_ADC_REFCTRL = 3; //VREFA as reference
+	REG_ADC_INPUTCTRL = 0x1270000; // 00000001 00100111 00000000 00000000
+					//  00000001 = GAIN 2X.
+					// 0010  =inputoffset: 2.
+					// 0111 = Inputscan= 7+1 = 8
+	REG_ADC_CTRLB = 0x101;  //12 bits conversion
+				//Disable digital result correction
+				//The ADC conversion result is right-adjusted in the RESULT register.
+				//Single conversion mode
+				//Differential mode. In this mode, the voltage difference between the MUXPOS and MUXNEG
+				//inputs will be converted by the ADC
+	REG_ADC_INTFLAG = 0xF; //clear intflags
+	REG_ADC_EVCTRL = 1; //A new conversion will be triggered on any incoming event
 	do {
 	}  while (REG_ADC_STATUS != 0);
 }

@@ -78,9 +78,32 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 
 #define REG_NVIC_SETENA	    (*(RwReg  *)0xE000E100UL) //Interrupt Set-Enable Register
 #define REG_NVIC_PRIO1		    (*(RwReg  *)0xE000E404UL) //Interrupt Priority Register 1
+#define REG_NVIC_PRIO2		    (*(RwReg  *)0xE000E408UL) //Interrupt Priority Register 1
 #define REG_NVIC_PRIO3		    (*(RwReg  *)0xE000E40CUL) //Interrupt Priority Register 3
 
+#define REG_GCLK_CLKCTRL           (*(RwReg16*)0x40000C02UL) /**< \brief (GCLK) Generic Clock Control */
 
+#define REG_SERCOM1_I2CM_CTRLA     (*(RwReg  *)0x42000C00UL) /**< \brief (SERCOM1) I2CM Control A */
+#define REG_SERCOM1_I2CM_CTRLB     (*(RwReg  *)0x42000C04UL) /**< \brief (SERCOM1) I2CM Control B */
+#define REG_SERCOM1_I2CM_INTENSET  (*(RwReg8 *)0x42000C16UL) /**< \brief (SERCOM1) I2CM Interrupt Enable Set */
+#define REG_SERCOM1_I2CM_SYNCBUSY  (*(RoReg  *)0x42000C1CUL) /**< \brief (SERCOM1) I2CM Syncbusy */
+#define REG_SERCOM1_I2CS_ADDR      (*(RwReg  *)0x42000C24UL) /**< \brief (SERCOM1) I2CS Address */
+
+void COnfigSerCom1 ()
+{
+	REG_GCLK_CLKCTRL = 0x410F; //01000001 00001111, Clock Enable, GCLK1, GCLK_SERCOM1_CORE
+	REG_SERCOM1_I2CM_CTRLB = 0x500; // 0000 0101 00000000, 
+	do {
+  	} while (REG_SERCOM1_I2CM_SYNCBUSY != 0);
+  	
+  	REG_SERCOM1_I2CS_ADDR = 0xC8; //the as address
+  	REG_SERCOM1_I2CM_CTRLA = 0x100012;//0001 0000 - 0000 0000 - 0001 0010, 50-100ns hold time, enable, 
+	do {
+  	} while (REG_SERCOM1_I2CM_SYNCBUSY != 0);
+  	
+  	REG_NVIC_PRIO2 = (REG_NVIC_PRIO2 & 0xFF00FFFF) | 0xC00000;
+  	REG_SERCOM1_I2CM_INTENSET = 5;
+}
 
 void configureNestedVectoredInterruptController ()
 {
@@ -90,7 +113,6 @@ void configureNestedVectoredInterruptController ()
 	REG_NVIC_SETENA = 0x40; //Enable interrupt: 01000000
 	REG_NVIC_PRIO3 = (REG_NVIC_PRIO3 & 0xFFFF00FF) | 0xC000;
 	REG_NVIC_SETENA = 0x2000; //Enable interrupt: 00100000 00000000
-
 }
 
 void configureDirectMemoryAccessController ()
@@ -243,5 +265,6 @@ int main()
 	adc_config();
 	ConfigureTimerCounter1 ();
 	configureNestedVectoredInterruptController();
+	COnfigSerCom1();
 	return 0 ;
 }

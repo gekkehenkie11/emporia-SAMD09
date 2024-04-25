@@ -52,7 +52,6 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 #define REG_PINCFG9	            (*(RwReg8 *)0x41004449UL) 
 #define REG_PINCFG10	            (*(RwReg8 *)0x4100444AUL) 
 #define REG_PINCFG11	            (*(RwReg8 *)0x4100444BUL) 
-
 #define REG_PINCFG14	            (*(RwReg8 *)0x4100444EUL) 
 #define REG_PINCFG15	            (*(RwReg8 *)0x4100444FUL) 
 #define REG_PINCFG22	            (*(RwReg8 *)0x41004456UL) 
@@ -62,7 +61,6 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 #define REG_PINCFG28	            (*(RwReg8 *)0x4100445CUL) 
 #define REG_PINCFG30	            (*(RwReg8 *)0x4100445EUL) 
 #define REG_PINCFG31	            (*(RwReg8 *)0x4100445FUL) 
-
 #define REG_PORT_PMUX1             (*(RwReg8 *)0x41004431UL) 
 #define REG_PORT_PMUX2	            (*(RwReg8 *)0x41004432UL) 
 #define REG_PORT_PMUX3	            (*(RwReg8 *)0x41004433UL) 
@@ -70,6 +68,40 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 #define REG_PORT_PMUX7	            (*(RwReg8 *)0x41004437UL) 
 #define REG_PORT_PMUX11            (*(RwReg8 *)0x4100443BUL) 
 
+#define REG_DMAC_CTRL              (*(RwReg16*)0x41004800UL) /**< \brief (DMAC) Control */
+#define REG_DMAC_PRICTRL0          (*(RwReg  *)0x41004814UL) /**< \brief (DMAC) Priority Control 0 */
+#define REG_DMAC_BASEADDR          (*(RwReg  *)0x41004834UL) /**< \brief (DMAC) Descriptor Memory Section Base Address */
+#define REG_DMAC_WRBADDR           (*(RwReg  *)0x41004838UL) /**< \brief (DMAC) Write-Back Memory Section Base Address */
+#define REG_DMAC_CHID              (*(RwReg8 *)0x4100483FUL) /**< \brief (DMAC) Channel ID */
+#define REG_DMAC_CHCTRLB           (*(RwReg  *)0x41004844UL) /**< \brief (DMAC) Channel Control B */
+#define REG_DMAC_CHINTENSET        (*(RwReg8 *)0x4100484DUL) /**< \brief (DMAC) Channel Interrupt Enable Set */
+
+void configureDirectMemoryAccessController ()
+{
+	REG_DMAC_BASEADDR = 0x20000020; //Descriptor memory section base address, 0x10 bytes long
+	*((uint16_t*)0x20000020) = 0x909; //0000 1001 0000 1001.  stepsize = 0, So next address = beatsize*1
+					   //STEPSEL = 0, so DST
+					   // DSTINC = 1, so auto increment destination
+					   // SRCINC = 0, so no auto increment on source.
+					   //Beatsize = 16 bit
+					   // blockact = 1 = INT = Channel in normal operation and block interrupt
+					   //Event Output Selection = 0, DISABLE, no event generation
+					   //valid.
+	REG_DMAC_WRBADDR  = 0x20000010; //Write-Back Memory Section Base Address, 0x10 bytes long
+	REG_DMAC_PRICTRL0 = 0x81818181; //10000001 10000001 10000001 10000001, Round-robin scheduling scheme for channels with level 3 priority.
+	REG_DMAC_CHID = 0;//Channel ID 0
+	REG_DMAC_CHCTRLB = 0x801200 ; // 00000000 10000000 00010010 00000000
+					//Software Command: no action
+					//Trigger action: BEAT. One trigger required for each beat transfer
+					//Channel resume operation
+					//Trigger source = ADC Result Ready Trigger
+					//Channel priority level 0
+					//Channel event generation is disabled.
+					//Channel event action will not be executed on any incoming event.
+					//Event Input Action = NO action
+	REG_DMAC_CHINTENSET = 3;//enable Channel Transfer Complete interrupt and Channel Transfer Error interrupt.
+	REG_DMAC_CTRL = 0xF02; //00001111 00000010 = Transfer requests for all Priority levels are handled. No CRC. DMA enable.			   
+}
 
 void config_PORT()
 {
@@ -190,6 +222,7 @@ int main()
 	config_Sysctrl_PM_and_GCLK ();
 	Config_NVMCTRL();
 	config_EventSystem();
+	configureDirectMemoryAccessController();
 	adc_config();
 	ConfigureTimerCounter1 ();
 	return 0 ;

@@ -76,6 +76,15 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 #define REG_DMAC_CHCTRLB           (*(RwReg  *)0x41004844UL) /**< \brief (DMAC) Channel Control B */
 #define REG_DMAC_CHINTENSET        (*(RwReg8 *)0x4100484DUL) /**< \brief (DMAC) Channel Interrupt Enable Set */
 
+#define REG_NVIC_PRI0		    (*(RwReg  *)0xE000E404UL) 
+
+void configureNestedVectoredInterruptController ()
+{
+	__asm__ __volatile__("dmb sy");
+	__asm__ __volatile__("CPSIE I");
+
+}
+
 void configureDirectMemoryAccessController ()
 {
 	REG_DMAC_BASEADDR = 0x20000020; //Descriptor memory section base address, 0x10 bytes long
@@ -225,5 +234,6 @@ int main()
 	configureDirectMemoryAccessController();
 	adc_config();
 	ConfigureTimerCounter1 ();
+	configureNestedVectoredInterruptController();
 	return 0 ;
 }

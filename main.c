@@ -201,9 +201,8 @@ void config_Sysctrl_PM_and_GCLK ()
 {
 	REG_SYSCTRL_OSC32K = 0;
 	REG_SYSCTRL_DFLLCTRL = REG_SYSCTRL_DFLLCTRL & 0xFF7F;
-    
-	do {
-	} while (((REG_SYSCTRL_PCLKSR) & 0x10) == 0); //DFLLRDY
+    	do {
+	} while ((REG_SYSCTRL_PCLKSR & 0x10) == 0); //DFLLRDY. Wait for oscillator stabilization
     
 	uint32_t calibdat = *((uint32_t*)0x806024) >> 0x1a;
 	if (calibdat == 0x3f) 
@@ -214,7 +213,7 @@ void config_Sysctrl_PM_and_GCLK ()
 	REG_SYSCTRL_DFLLCTRL = 2;
     
 	do {
-	} while (((REG_SYSCTRL_PCLKSR) & 0x10) == 0); //DFLLRDY
+	} while ((REG_SYSCTRL_PCLKSR & 0x10) == 0); //DFLLRDY. Wait for oscillator stabilization
     
 	REG_GCLK_GENCTRL = 0x10700;
     
@@ -242,6 +241,7 @@ void adc_config() {
 	do {
 	}   while (REG_ADC_STATUS != 0);
     
+        //Load ADC factory calibration values
 	uint32_t tmp =  (*((uint32_t*)0x806024) << 5) & 0x700 | *((uint32_t*)0x806020) >> 27 | (*((uint32_t*)0x806024) << 5) & 0xff | ((*((uint32_t*)0x806024) & 7) << 5);	 
 	REG_ADC_CALIB = tmp;    
 	REG_ADC_SAMPCTRL = 1;

@@ -76,12 +76,20 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 #define REG_DMAC_CHCTRLB           (*(RwReg  *)0x41004844UL) /**< \brief (DMAC) Channel Control B */
 #define REG_DMAC_CHINTENSET        (*(RwReg8 *)0x4100484DUL) /**< \brief (DMAC) Channel Interrupt Enable Set */
 
-#define REG_NVIC_PRI0		    (*(RwReg  *)0xE000E404UL) 
+#define REG_NVIC_SETENA	    (*(RwReg  *)0xE000E100UL) //Interrupt Set-Enable Register
+#define REG_NVIC_PRIO1		    (*(RwReg  *)0xE000E404UL) //Interrupt Priority Register 1
+#define REG_NVIC_PRIO3		    (*(RwReg  *)0xE000E40CUL) //Interrupt Priority Register 3
+
+
 
 void configureNestedVectoredInterruptController ()
 {
 	__asm__ __volatile__("dmb sy");
 	__asm__ __volatile__("CPSIE I");
+	REG_NVIC_PRIO1 = (REG_NVIC_PRIO1 & 0xFF00FFFF) | 0x400000;
+	REG_NVIC_SETENA = 0x40; //Enable interrupt: 01000000
+	REG_NVIC_PRIO3 = (REG_NVIC_PRIO3 & 0xFFFF00FF) | 0xC000;
+	REG_NVIC_SETENA = 0x2000; //Enable interrupt: 00100000 00000000
 
 }
 

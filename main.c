@@ -113,7 +113,7 @@ void configureNestedVectoredInterruptController ()
 	REG_NVIC_PRIO1 = (REG_NVIC_PRIO1 & 0xFF00FFFF) | 0x400000;
 	REG_NVIC_SETENA = 0x40; //Enable interrupt: 01000000 = int 6 = our DMA IRQ.
 	REG_NVIC_PRIO3 = (REG_NVIC_PRIO3 & 0xFFFF00FF) | 0xC000;
-	REG_NVIC_SETENA = 0x2000; //Enable interrupt: 00100000 00000000
+	REG_NVIC_SETENA = 0x2000; //Enable interrupt: 00100000 00000000 = int 13. Why?
 }
 
 void configureDirectMemoryAccessController ()

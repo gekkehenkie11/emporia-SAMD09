@@ -102,6 +102,7 @@ void COnfigSerCom1 ()
   	} while (REG_SERCOM1_I2CM_SYNCBUSY != 0);
   	
   	REG_NVIC_PRIO2 = (REG_NVIC_PRIO2 & 0xFF00FFFF) | 0xC00000;
+  	REG_NVIC_SETENA = 0x400; //Enable interrupt: 0100 00000000 = int 10 = our SerCom IRQ.
   	REG_SERCOM1_I2CM_INTENSET = 5;
 }
 
@@ -110,7 +111,7 @@ void configureNestedVectoredInterruptController ()
 	__asm__ __volatile__("dmb sy");
 	__asm__ __volatile__("CPSIE I");
 	REG_NVIC_PRIO1 = (REG_NVIC_PRIO1 & 0xFF00FFFF) | 0x400000;
-	REG_NVIC_SETENA = 0x40; //Enable interrupt: 01000000
+	REG_NVIC_SETENA = 0x40; //Enable interrupt: 01000000 = int 7 = our DMA IRQ.
 	REG_NVIC_PRIO3 = (REG_NVIC_PRIO3 & 0xFFFF00FF) | 0xC000;
 	REG_NVIC_SETENA = 0x2000; //Enable interrupt: 00100000 00000000
 }

@@ -92,7 +92,11 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 
 void  Config_DMA_Transfer_Descriptor ()
 {
-//TODO
+	*((uint16_t*)0x20000022) = 8;//BTCNT, number of beats per transaction.
+	*((uint32_t*)0x20000024) = 0x4200201A ;//Source address
+	*((uint32_t*)0x20000024) = 0x20000040 ;//Destination address 0x20000030 + 0x10 (transaction length)
+
+	//TODO finish this routine
 }
 
 void enableADC()
@@ -104,7 +108,7 @@ void enableADC()
 
 void enable_TC1()
 {
-	REG_TC1_CTRLA = REG_TC1_CTRLA |2;
+	REG_TC1_CTRLA = REG_TC1_CTRLA | 2;
 	do {
 	} while (REG_TC1_STATUS >= 0x80); //We defined it as unsigned, checking for bit 7, SYNCBUSY.
 }

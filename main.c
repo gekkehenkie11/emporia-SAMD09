@@ -2,10 +2,12 @@
 #include <stdint.h>
 
 typedef volatile       uint8_t  RwReg8;  /**< Read-Write  8-bit register (volatile unsigned int) */
+typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatile const unsigned int) */
 typedef volatile       uint16_t RwReg16; /**< Read-Write 16-bit register (volatile unsigned int) */
+typedef volatile       uint16_t RoReg16; /**< Read only 16-bit register (volatile unsigned int) */
 typedef volatile       uint32_t RwReg;   /**< Read-Write 32-bit register (volatile unsigned int) */
 typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatile const unsigned int) */
-typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatile const unsigned int) */
+
 
 #define REG_ADC_CTRLA              (*(RwReg8 *)0x42002000UL)
 #define REG_ADC_REFCTRL            (*(RwReg8 *)0x42002001UL)
@@ -15,6 +17,7 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 #define REG_ADC_EVCTRL             (*(RwReg8 *)0x42002014UL) /**< \brief (ADC) Event Control */
 #define REG_ADC_INTFLAG            (*(RwReg8 *)0x42002018UL) /**< \brief (ADC) Interrupt Flag Status and Clear */
 #define REG_ADC_STATUS             (*(RoReg8 *)0x42002019UL) /**< \brief (ADC) Status */
+#define REG_ADC_RESULT             (*(RoReg16*)0x4200201AUL) /**< \brief (ADC) Result */
 #define REG_ADC_CALIB              (*(RwReg16*)0x42002028UL)
 
 #define REG_SYSCTRL_PCLKSR         (*(RoReg  *)0x4000080CUL) /**< \brief (SYSCTRL) Power and Clocks Status */
@@ -92,8 +95,8 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 
 void  Config_DMA_Transfer_Descriptor ()
 {
-	*((uint16_t*)0x20000022) = 8;//BTCNT, number of beats per transaction.
-	*((uint32_t*)0x20000024) = 0x4200201A ;//Source address
+	*((uint16_t*)0x20000022) = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
+	*((uint32_t*)0x20000024) = REG_ADC_RESULT;//Source address
 	*((uint32_t*)0x20000024) = 0x20000040 ;//Destination address 0x20000030 + 0x10 (transaction length)
 
 	//TODO finish this routine

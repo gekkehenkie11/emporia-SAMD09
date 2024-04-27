@@ -9,6 +9,13 @@ typedef volatile       uint16_t RoReg16; /**< Read only 16-bit register (volatil
 typedef volatile       uint32_t RwReg;   /**< Read-Write 32-bit register (volatile unsigned int) */
 typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatile const unsigned int) */
 
+#ifdef __cplusplus
+  #define   __I     volatile             /*!< Defines 'read only' permissions                 */
+#else
+  #define   __I     volatile const       /*!< Defines 'read only' permissions                 */
+#endif
+#define     __O     volatile             /*!< Defines 'write only' permissions                */
+#define     __IO    volatile             /*!< Defines 'read / write' permissions              */
 
 #define REG_ADC_CTRLA              (*(RwReg8 *)0x42002000UL)
 #define REG_ADC_REFCTRL            (*(RwReg8 *)0x42002001UL)
@@ -94,51 +101,142 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 #define REG_SERCOM1_I2CM_SYNCBUSY  (*(RoReg  *)0x42000C1CUL) /**< \brief (SERCOM1) I2CM Syncbusy */
 #define REG_SERCOM1_I2CS_ADDR      (*(RwReg  *)0x42000C24UL) /**< \brief (SERCOM1) I2CS Address */
 
+#define SCB_VTOR_TBLOFF_Pos                 7                                             /*!< SCB VTOR: TBLOFF Position */
+#define SCB_VTOR_TBLOFF_Msk                (0x1FFFFFFUL << SCB_VTOR_TBLOFF_Pos)           /*!< SCB VTOR: TBLOFF Mask */
 
-/* Exception Table */
-__attribute__ ((section(".vectors")))
-const DeviceVectors exception_table = {
 
-        /* Configure Initial Stack Pointer, using linker-generated symbols */
-        .pvStack                = (void*) (&_estack),
+#define DUMMY __attribute__ ((weak, alias ("irq_handler_dummy")))
 
-        .pfnReset_Handler       = (void*) Reset_Handler,
-        .pfnNonMaskableInt_Handler = (void*) NonMaskableInt_Handler,
-        .pfnHardFault_Handler   = (void*) HardFault_Handler,
-        .pvReservedM12          = (void*) (0UL), /* Reserved */
-        .pvReservedM11          = (void*) (0UL), /* Reserved */
-        .pvReservedM10          = (void*) (0UL), /* Reserved */
-        .pvReservedM9           = (void*) (0UL), /* Reserved */
-        .pvReservedM8           = (void*) (0UL), /* Reserved */
-        .pvReservedM7           = (void*) (0UL), /* Reserved */
-        .pvReservedM6           = (void*) (0UL), /* Reserved */
-        .pfnSVCall_Handler      = (void*) SVCall_Handler,
-        .pvReservedM4           = (void*) (0UL), /* Reserved */
-        .pvReservedM3           = (void*) (0UL), /* Reserved */
-        .pfnPendSV_Handler      = (void*) PendSV_Handler,
-        .pfnSysTick_Handler     = (void*) SysTick_Handler,
+extern unsigned int _etext;
+extern unsigned int _data;
+extern unsigned int _edata;
+extern unsigned int _bss;
+extern unsigned int _ebss;
+extern int main(void);
 
-        /* Configurable interrupts */
-        .pfnPM_Handler          = (void*) PM_Handler,             /*  0 Power Manager */
-        .pfnSYSCTRL_Handler     = (void*) SYSCTRL_Handler,        /*  1 System Control */
-        .pfnWDT_Handler         = (void*) WDT_Handler,            /*  2 Watchdog Timer */
-        .pfnRTC_Handler         = (void*) RTC_Handler,            /*  3 Real-Time Counter */
-        .pfnEIC_Handler         = (void*) EIC_Handler,            /*  4 External Interrupt Controller */
-        .pfnNVMCTRL_Handler     = (void*) NVMCTRL_Handler,        /*  5 Non-Volatile Memory Controller */
-        .pfnDMAC_Handler        = (void*) DMAC_Handler,           /*  6 Direct Memory Access Controller */
-        .pvReserved7            = (void*) (0UL),                  /*  7 Reserved */
-        .pfnEVSYS_Handler       = (void*) EVSYS_Handler,          /*  8 Event System Interface */
-        .pfnSERCOM0_Handler     = (void*) SERCOM0_Handler,        /*  9 Serial Communication Interface 0 */
-        .pfnSERCOM1_Handler     = (void*) SERCOM1_Handler,        /* 10 Serial Communication Interface 1 */
-        .pvReserved11           = (void*) (0UL),                  /* 11 Reserved */
-        .pvReserved12           = (void*) (0UL),                  /* 12 Reserved */
-        .pfnTC1_Handler         = (void*) TC1_Handler,            /* 13 Basic Timer Counter 0 */
-        .pfnTC2_Handler         = (void*) TC2_Handler,            /* 14 Basic Timer Counter 1 */
-        .pfnADC_Handler         = (void*) ADC_Handler,            /* 15 Analog Digital Converter */
-        .pvReserved16           = (void*) (0UL),                  /* 16 Reserved */
-        .pvReserved17           = (void*) (0UL),                  /* 17 Reserved */
-        .pfnPTC_Handler         = (void*) PTC_Handler             /* 18 Peripheral Touch Controller */
+void irq_handler_reset(void);
+void irq_handler_dmac(void);
+DUMMY void irq_handler_nmi(void);
+DUMMY void irq_handler_hard_fault(void);
+DUMMY void irq_handler_sv_call(void);
+DUMMY void irq_handler_pend_sv(void);
+DUMMY void irq_handler_sys_tick(void);
+DUMMY void irq_handler_pm(void);
+DUMMY void irq_handler_sysctrl(void);
+DUMMY void irq_handler_wdt(void);
+DUMMY void irq_handler_rtc(void);
+DUMMY void irq_handler_eic(void);
+DUMMY void irq_handler_nvmctrl(void);
+DUMMY void irq_handler_evsys(void);
+DUMMY void irq_handler_sercom0(void);
+DUMMY void irq_handler_sercom1(void);
+DUMMY void irq_handler_tc1(void);
+DUMMY void irq_handler_tc2(void);
+DUMMY void irq_handler_adc(void);
+DUMMY void irq_handler_ptc(void);
+
+extern void _stack_top(void);
+
+//-----------------------------------------------------------------------------
+__attribute__ ((used, section(".vectors")))
+void (* const vectors[])(void) =
+{
+  &_stack_top,                   // 0 - Initial Stack Pointer Value
+
+  // Cortex-M0+ handlers
+  irq_handler_reset,             // 1 - Reset
+  irq_handler_nmi,               // 2 - NMI
+  irq_handler_hard_fault,        // 3 - Hard Fault
+  0,                             // 4 - Reserved
+  0,                             // 5 - Reserved
+  0,                             // 6 - Reserved
+  0,                             // 7 - Reserved
+  0,                             // 8 - Reserved
+  0,                             // 9 - Reserved
+  0,                             // 10 - Reserved
+  irq_handler_sv_call,           // 11 - SVCall
+  0,                             // 12 - Reserved
+  0,                             // 13 - Reserved
+  irq_handler_pend_sv,           // 14 - PendSV
+  irq_handler_sys_tick,          // 15 - SysTick
+
+  // Peripheral handlers
+  irq_handler_pm,                // 0 - Power Manager
+  irq_handler_sysctrl,           // 1 - System Controller
+  irq_handler_wdt,               // 2 - Watchdog Timer
+  irq_handler_rtc,               // 3 - Real Time Counter
+  irq_handler_eic,               // 4 - External Interrupt Controller
+  irq_handler_nvmctrl,           // 5 - Non-Volatile Memory Controller
+  irq_handler_dmac,              // 6 - Direct Memory Access Controller
+  0,		                 // 7 - Reserved (usb)
+  irq_handler_evsys,             // 8 - Event System
+  irq_handler_sercom0,           // 9 - Serial Communication Interface 0
+  irq_handler_sercom1,           // 10 - Serial Communication Interface 1
+  0,		                  // 11 - Reserved (Serial Communication Interface 2)
+  0,                             // 12 - Reserved
+  irq_handler_tc1,               // 13 - Timer/Counter 1
+  irq_handler_tc2,               // 14 - Timer/Counter 2
+  irq_handler_adc,               // 15 - Analog-to-Digital Converter
+  0,                             // 16 - Reserved
+  0,		                 // 17 - Digital-to-Analog Converter
+  irq_handler_ptc,               // 18 - Peripheral Touch Controller
 };
+
+
+/* Memory mapping of Cortex-M0+ Hardware */
+#define SCS_BASE            (0xE000E000UL)                            /*!< System Control Space Base Address */
+#define SysTick_BASE        (SCS_BASE +  0x0010UL)                    /*!< SysTick Base Address              */
+#define NVIC_BASE           (SCS_BASE +  0x0100UL)                    /*!< NVIC Base Address                 */
+#define SCB_BASE            (SCS_BASE +  0x0D00UL)                    /*!< System Control Block Base Address */
+
+#define SCB                 ((SCB_Type       *)     SCB_BASE      )   /*!< SCB configuration struct           */
+#define SysTick             ((SysTick_Type   *)     SysTick_BASE  )   /*!< SysTick configuration struct       */
+#define NVIC                ((NVIC_Type      *)     NVIC_BASE     )   /*!< NVIC configuration struct          */
+
+
+typedef struct
+{
+  __I  uint32_t CPUID;                   /*!< Offset: 0x000 (R/ )  CPUID Base Register                                   */
+  __IO uint32_t ICSR;                    /*!< Offset: 0x004 (R/W)  Interrupt Control and State Register                  */
+  __IO uint32_t VTOR;                    /*!< Offset: 0x008 (R/W)  Vector Table Offset Register                          */
+  __IO uint32_t AIRCR;                   /*!< Offset: 0x00C (R/W)  Application Interrupt and Reset Control Register      */
+  __IO uint32_t SCR;                     /*!< Offset: 0x010 (R/W)  System Control Register                               */
+  __IO uint32_t CCR;                     /*!< Offset: 0x014 (R/W)  Configuration Control Register                        */
+       uint32_t RESERVED1;
+  __IO uint32_t SHP[2];                  /*!< Offset: 0x01C (R/W)  System Handlers Priority Registers. [0] is RESERVED   */
+  __IO uint32_t SHCSR;                   /*!< Offset: 0x024 (R/W)  System Handler Control and State Register             */
+} SCB_Type;
+
+
+void irq_handler_dummy(void)
+{
+  while (1);
+}
+
+void irq_handler_reset(void)
+{
+  unsigned int *src, *dst;
+
+  src = &_etext;
+  dst = &_data;
+  while (dst < &_edata)
+    *dst++ = *src++;
+
+  dst = &_bss;
+  while (dst < &_ebss)
+    *dst++ = 0;
+
+  SCB->VTOR = (uint32_t)vectors;
+
+  main();
+
+  while (1);
+}
+
+void irq_handler_dmac(void)
+{
+	//TODO implement function. We process our ADC results here!
+}
 
 
 bool alldataready = false;
@@ -345,7 +443,7 @@ void adc_config() {
 	}  while (REG_ADC_STATUS != 0);
 }
 
-int main()
+int main(void)
 {
 	REG_NVMCTRL_CTRLB = 6;
 	config_PORT();
@@ -366,6 +464,5 @@ int main()
 		if (alldataready)
 			sendESPpacket();
 	}
-	
-	return 0 ;
+	return 0;
 }

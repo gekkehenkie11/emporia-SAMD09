@@ -10,12 +10,12 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 #define REG_ADC_CTRLA              (*(RwReg8 *)0x42002000UL)
 #define REG_ADC_REFCTRL            (*(RwReg8 *)0x42002001UL)
 #define REG_ADC_SAMPCTRL           (*(RwReg8 *)0x42002003UL)
-#define REG_ADC_CALIB              (*(RwReg16*)0x42002028UL)
 #define REG_ADC_CTRLB              (*(RwReg16*)0x42002004UL)
 #define REG_ADC_INPUTCTRL          (*(RwReg  *)0x42002010UL)
-#define REG_ADC_INTFLAG            (*(RwReg8 *)0x42002018UL) /**< \brief (ADC) Interrupt Flag Status and Clear */
 #define REG_ADC_EVCTRL             (*(RwReg8 *)0x42002014UL) /**< \brief (ADC) Event Control */
+#define REG_ADC_INTFLAG            (*(RwReg8 *)0x42002018UL) /**< \brief (ADC) Interrupt Flag Status and Clear */
 #define REG_ADC_STATUS             (*(RoReg8 *)0x42002019UL) /**< \brief (ADC) Status */
+#define REG_ADC_CALIB              (*(RwReg16*)0x42002028UL)
 
 #define REG_SYSCTRL_PCLKSR         (*(RoReg  *)0x4000080CUL) /**< \brief (SYSCTRL) Power and Clocks Status */
 #define REG_SYSCTRL_OSC32K         (*(RwReg  *)0x40000818UL) /**< \brief (SYSCTRL) 32kHz Internal Oscillator (OSC32K) Control */
@@ -89,6 +89,26 @@ typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatil
 #define REG_SERCOM1_I2CM_SYNCBUSY  (*(RoReg  *)0x42000C1CUL) /**< \brief (SERCOM1) I2CM Syncbusy */
 #define REG_SERCOM1_I2CS_ADDR      (*(RwReg  *)0x42000C24UL) /**< \brief (SERCOM1) I2CS Address */
 
+
+void  Config_DMA_Transfer_Descriptor ()
+{
+//TODO
+}
+
+void enableADC()
+{
+	REG_ADC_CTRLA = REG_ADC_CTRLA | 2;
+	do {
+	}   while (REG_ADC_STATUS != 0);
+}
+
+void enable_TC1()
+{
+	REG_TC1_CTRLA = REG_TC1_CTRLA |2;
+	do {
+	} while (REG_TC1_STATUS >= 0x80); //We defined it as unsigned, checking for bit 7, SYNCBUSY.
+}
+
 void COnfigSerCom1 ()
 {
 	REG_GCLK_CLKCTRL = 0x410F; //01000001 00001111, Clock Enable, GCLK1, GCLK_SERCOM1_CORE
@@ -113,7 +133,7 @@ void configureNestedVectoredInterruptController ()
 	REG_NVIC_PRIO1 = (REG_NVIC_PRIO1 & 0xFF00FFFF) | 0x400000;
 	REG_NVIC_SETENA = 0x40; //Enable interrupt: 01000000 = int 6 = our DMA IRQ.
 	REG_NVIC_PRIO3 = (REG_NVIC_PRIO3 & 0xFFFF00FF) | 0xC000;
-	REG_NVIC_SETENA = 0x2000; //Enable interrupt: 00100000 00000000 = int 13. Why?
+	REG_NVIC_SETENA = 0x2000; //Enable interrupt: 00100000 00000000 = int 13, why ??
 }
 
 void configureDirectMemoryAccessController ()
@@ -275,5 +295,8 @@ int main()
 	ConfigureTimerCounter1 ();
 	configureNestedVectoredInterruptController();
 	COnfigSerCom1();
+	Config_DMA_Transfer_Descriptor ();
+	enableADC ();
+	enable_TC1();
 	return 0 ;
 }

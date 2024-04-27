@@ -31,7 +31,7 @@ LDFLAGS += -Wl,--script=./samd09d14.ld
 #  -I..
 
 SRCS += \
- ./hello.c 
+ ./main.c 
 
 
 DEFINES += \

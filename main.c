@@ -1,5 +1,6 @@
 #include "stdio.h"
 #include <stdint.h>
+#include <stdbool.h> 
 
 typedef volatile       uint8_t  RwReg8;  /**< Read-Write  8-bit register (volatile unsigned int) */
 typedef volatile       uint8_t  RoReg8;  /**< Read only  8-bit register (volatile const unsigned int) */
@@ -76,6 +77,7 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 #define REG_DMAC_BASEADDR          (*(RwReg  *)0x41004834UL) /**< \brief (DMAC) Descriptor Memory Section Base Address */
 #define REG_DMAC_WRBADDR           (*(RwReg  *)0x41004838UL) /**< \brief (DMAC) Write-Back Memory Section Base Address */
 #define REG_DMAC_CHID              (*(RwReg8 *)0x4100483FUL) /**< \brief (DMAC) Channel ID */
+#define REG_DMAC_CHCTRLA           (*(RwReg8 *)0x41004840UL) /**< \brief (DMAC) Channel Control A */
 #define REG_DMAC_CHCTRLB           (*(RwReg  *)0x41004844UL) /**< \brief (DMAC) Channel Control B */
 #define REG_DMAC_CHINTENSET        (*(RwReg8 *)0x4100484DUL) /**< \brief (DMAC) Channel Interrupt Enable Set */
 
@@ -92,14 +94,20 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 #define REG_SERCOM1_I2CM_SYNCBUSY  (*(RoReg  *)0x42000C1CUL) /**< \brief (SERCOM1) I2CM Syncbusy */
 #define REG_SERCOM1_I2CS_ADDR      (*(RwReg  *)0x42000C24UL) /**< \brief (SERCOM1) I2CS Address */
 
+bool alldataready = false;
 
-void  Config_DMA_Transfer_Descriptor ()
+void sendESPpacket()
+{
+	//TODO create this routine
+}
+
+void  enableDMA ()
 {
 	*((uint16_t*)0x20000022) = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
 	*((uint32_t*)0x20000024) = REG_ADC_RESULT;//Source address
-	*((uint32_t*)0x20000024) = 0x20000040 ;//Destination address 0x20000030 + 0x10 (transaction length)
-
-	//TODO finish this routine
+	*((uint32_t*)0x20000028) = 0x20000040 ;//Destination address 0x20000030 + 0x10 (transaction length)
+	REG_DMAC_CHID = 0;
+	REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;
 }
 
 void enableADC()
@@ -301,9 +309,16 @@ int main()
 	adc_config();
 	ConfigureTimerCounter1 ();
 	configureNestedVectoredInterruptController();
-	COnfigSerCom1();
-	Config_DMA_Transfer_Descriptor ();
+	enableDMA ();
 	enableADC ();
 	enable_TC1();
+	COnfigSerCom1();
+	
+	for (;;) //main program loop
+	{		
+		if (alldataready)
+			sendESPpacket();
+	}
+	
 	return 0 ;
 }

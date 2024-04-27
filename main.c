@@ -94,6 +94,53 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 #define REG_SERCOM1_I2CM_SYNCBUSY  (*(RoReg  *)0x42000C1CUL) /**< \brief (SERCOM1) I2CM Syncbusy */
 #define REG_SERCOM1_I2CS_ADDR      (*(RwReg  *)0x42000C24UL) /**< \brief (SERCOM1) I2CS Address */
 
+
+/* Exception Table */
+__attribute__ ((section(".vectors")))
+const DeviceVectors exception_table = {
+
+        /* Configure Initial Stack Pointer, using linker-generated symbols */
+        .pvStack                = (void*) (&_estack),
+
+        .pfnReset_Handler       = (void*) Reset_Handler,
+        .pfnNonMaskableInt_Handler = (void*) NonMaskableInt_Handler,
+        .pfnHardFault_Handler   = (void*) HardFault_Handler,
+        .pvReservedM12          = (void*) (0UL), /* Reserved */
+        .pvReservedM11          = (void*) (0UL), /* Reserved */
+        .pvReservedM10          = (void*) (0UL), /* Reserved */
+        .pvReservedM9           = (void*) (0UL), /* Reserved */
+        .pvReservedM8           = (void*) (0UL), /* Reserved */
+        .pvReservedM7           = (void*) (0UL), /* Reserved */
+        .pvReservedM6           = (void*) (0UL), /* Reserved */
+        .pfnSVCall_Handler      = (void*) SVCall_Handler,
+        .pvReservedM4           = (void*) (0UL), /* Reserved */
+        .pvReservedM3           = (void*) (0UL), /* Reserved */
+        .pfnPendSV_Handler      = (void*) PendSV_Handler,
+        .pfnSysTick_Handler     = (void*) SysTick_Handler,
+
+        /* Configurable interrupts */
+        .pfnPM_Handler          = (void*) PM_Handler,             /*  0 Power Manager */
+        .pfnSYSCTRL_Handler     = (void*) SYSCTRL_Handler,        /*  1 System Control */
+        .pfnWDT_Handler         = (void*) WDT_Handler,            /*  2 Watchdog Timer */
+        .pfnRTC_Handler         = (void*) RTC_Handler,            /*  3 Real-Time Counter */
+        .pfnEIC_Handler         = (void*) EIC_Handler,            /*  4 External Interrupt Controller */
+        .pfnNVMCTRL_Handler     = (void*) NVMCTRL_Handler,        /*  5 Non-Volatile Memory Controller */
+        .pfnDMAC_Handler        = (void*) DMAC_Handler,           /*  6 Direct Memory Access Controller */
+        .pvReserved7            = (void*) (0UL),                  /*  7 Reserved */
+        .pfnEVSYS_Handler       = (void*) EVSYS_Handler,          /*  8 Event System Interface */
+        .pfnSERCOM0_Handler     = (void*) SERCOM0_Handler,        /*  9 Serial Communication Interface 0 */
+        .pfnSERCOM1_Handler     = (void*) SERCOM1_Handler,        /* 10 Serial Communication Interface 1 */
+        .pvReserved11           = (void*) (0UL),                  /* 11 Reserved */
+        .pvReserved12           = (void*) (0UL),                  /* 12 Reserved */
+        .pfnTC1_Handler         = (void*) TC1_Handler,            /* 13 Basic Timer Counter 0 */
+        .pfnTC2_Handler         = (void*) TC2_Handler,            /* 14 Basic Timer Counter 1 */
+        .pfnADC_Handler         = (void*) ADC_Handler,            /* 15 Analog Digital Converter */
+        .pvReserved16           = (void*) (0UL),                  /* 16 Reserved */
+        .pvReserved17           = (void*) (0UL),                  /* 17 Reserved */
+        .pfnPTC_Handler         = (void*) PTC_Handler             /* 18 Peripheral Touch Controller */
+};
+
+
 bool alldataready = false;
 
 void sendESPpacket()

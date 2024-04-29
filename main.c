@@ -113,10 +113,12 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 
 #define ESPpacketlength       0x11C
 
+bool alldataready = false;
 uint8_t ESPbyteIndex = 0; 
 uint8_t temp = 0;
-uint8_t EspPacket[ESPpacketlength];
-uint16_t DMAresults[8];
+uint8_t EspPacket[ESPpacketlength]; //The final packet that we send to the ESP
+uint16_t DMAresults[8]; //We copy the 8 ADC results to this buffer using DMA
+			//Layout: MainCT1_V, MainCT1_A, MainCT2_V, MainCT2_A, MainCT_3_V, MainCT_3_A, Mux1_A, Mux2_A
 
 struct DMAdescriptorType {           
   uint16_t BTCTRL;
@@ -125,8 +127,6 @@ struct DMAdescriptorType {
   uint32_t DSTADDR;
   uint32_t DESCADDR;
 }  DMAdescriptor, DMAdescriptorwriteback;
-
-
 
 extern unsigned int _etext;
 extern unsigned int _data;
@@ -203,7 +203,6 @@ void (* const vectors[])(void) =
   irq_handler_ptc,               // 18 - Peripheral Touch Controller
 };
 
-
 /* Memory mapping of Cortex-M0+ Hardware */
 #define SCS_BASE            (0xE000E000UL)                            /*!< System Control Space Base Address */
 #define SysTick_BASE        (SCS_BASE +  0x0010UL)                    /*!< SysTick Base Address              */
@@ -213,7 +212,6 @@ void (* const vectors[])(void) =
 #define SCB                 ((SCB_Type       *)     SCB_BASE      )   /*!< SCB configuration struct           */
 #define SysTick             ((SysTick_Type   *)     SysTick_BASE  )   /*!< SysTick configuration struct       */
 #define NVIC                ((NVIC_Type      *)     NVIC_BASE     )   /*!< NVIC configuration struct          */
-
 
 typedef struct
 {
@@ -288,15 +286,10 @@ void irq_handler_sercom1(void) //We use IRQ sources "DRDY" and "Stop"
 	}
 }
 
-
-
 void irq_handler_dmac(void)
 {
 	//TODO implement function. We process our ADC results here!
 }
-
-
-bool alldataready = false;
 
 void sendESPpacket()
 {
@@ -307,7 +300,7 @@ void  enableDMA ()
 {
 	DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
 	DMAdescriptor.SRCADDR = REG_ADC_RESULT;//Source address
-	DMAdescriptor.DSTADDR = &DMAresults + 0x10 ;//Destination address 0x10 (transaction length), see manual
+	DMAdescriptor.DSTADDR = &DMAresults + 1 ;//Destination address + (transaction length), see manual
 	DMAdescriptor.DESCADDR = 0;	
 	REG_DMAC_CHID = 0;
 	REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;

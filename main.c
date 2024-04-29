@@ -95,17 +95,38 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 
 #define REG_GCLK_CLKCTRL           (*(RwReg16*)0x40000C02UL) /**< \brief (GCLK) Generic Clock Control */
 
-#define REG_SERCOM1_I2CM_CTRLA     (*(RwReg  *)0x42000C00UL) /**< \brief (SERCOM1) I2CM Control A */
-#define REG_SERCOM1_I2CM_CTRLB     (*(RwReg  *)0x42000C04UL) /**< \brief (SERCOM1) I2CM Control B */
-#define REG_SERCOM1_I2CM_INTENSET  (*(RwReg8 *)0x42000C16UL) /**< \brief (SERCOM1) I2CM Interrupt Enable Set */
-#define REG_SERCOM1_I2CM_SYNCBUSY  (*(RoReg  *)0x42000C1CUL) /**< \brief (SERCOM1) I2CM Syncbusy */
+#define REG_SERCOM1_I2CS_CTRLA     (*(RwReg  *)0x42000C00UL) /**< \brief (SERCOM1) I2CM Control A */
+#define REG_SERCOM1_I2CS_CTRLB     (*(RwReg  *)0x42000C04UL) /**< \brief (SERCOM1) I2CM Control B */
+#define REG_SERCOM1_I2CS_INTENSET  (*(RwReg8 *)0x42000C16UL) /**< \brief (SERCOM1) I2CM Interrupt Enable Set */
+#define REG_SERCOM1_I2CS_INTFLAG   (*(RwReg8 *)0x42000C18UL) /**< \brief (SERCOM1) I2CS Interrupt Flag Status and Clear */
+#define REG_SERCOM1_I2CS_STATUS    (*(RwReg16*)0x42000C1AUL) /**< \brief (SERCOM1) I2CS Status */
+#define REG_SERCOM1_I2CS_SYNCBUSY  (*(RoReg  *)0x42000C1CUL) /**< \brief (SERCOM1) I2CM Syncbusy */
 #define REG_SERCOM1_I2CS_ADDR      (*(RwReg  *)0x42000C24UL) /**< \brief (SERCOM1) I2CS Address */
+#define REG_SERCOM1_I2CS_DATA      (*(RwReg8 *)0x42000C28UL) /**< \brief (SERCOM1) I2CS Data */
 
 #define SCB_VTOR_TBLOFF_Pos                 7                                             /*!< SCB VTOR: TBLOFF Position */
 #define SCB_VTOR_TBLOFF_Msk                (0x1FFFFFFUL << SCB_VTOR_TBLOFF_Pos)           /*!< SCB VTOR: TBLOFF Mask */
 
 
 #define DUMMY __attribute__ ((weak, alias ("irq_handler_dummy")))
+
+
+#define ESPpacketlength       0x11C
+
+uint8_t ESPbyteIndex = 0; 
+uint8_t temp = 0;
+uint8_t EspPacket[ESPpacketlength];
+uint16_t DMAresults[8];
+
+struct DMAdescriptorType {           
+  uint16_t BTCTRL;
+  uint16_t BTCNT;
+  uint32_t SRCADDR;
+  uint32_t DSTADDR;
+  uint32_t DESCADDR;
+}  DMAdescriptor, DMAdescriptorwriteback;
+
+
 
 extern unsigned int _etext;
 extern unsigned int _data;
@@ -116,6 +137,7 @@ extern int main(void);
 
 void irq_handler_reset(void);
 void irq_handler_dmac(void);
+void irq_handler_sercom1(void);
 DUMMY void irq_handler_nmi(void);
 DUMMY void irq_handler_hard_fault(void);
 DUMMY void irq_handler_sv_call(void);
@@ -129,7 +151,6 @@ DUMMY void irq_handler_eic(void);
 DUMMY void irq_handler_nvmctrl(void);
 DUMMY void irq_handler_evsys(void);
 DUMMY void irq_handler_sercom0(void);
-DUMMY void irq_handler_sercom1(void);
 DUMMY void irq_handler_tc1(void);
 DUMMY void irq_handler_tc2(void);
 DUMMY void irq_handler_adc(void);
@@ -167,11 +188,11 @@ void (* const vectors[])(void) =
   irq_handler_rtc,               // 3 - Real Time Counter
   irq_handler_eic,               // 4 - External Interrupt Controller
   irq_handler_nvmctrl,           // 5 - Non-Volatile Memory Controller
-  irq_handler_dmac,              // 6 - Direct Memory Access Controller
+  irq_handler_dmac,              // 6 - Direct Memory Access Controller, we use this interrupt!
   0,		                 // 7 - Reserved (usb)
   irq_handler_evsys,             // 8 - Event System
   irq_handler_sercom0,           // 9 - Serial Communication Interface 0
-  irq_handler_sercom1,           // 10 - Serial Communication Interface 1
+  irq_handler_sercom1,           // 10 - Serial Communication Interface 1, we use this interrupt!
   0,		                  // 11 - Reserved (Serial Communication Interface 2)
   0,                             // 12 - Reserved
   irq_handler_tc1,               // 13 - Timer/Counter 1
@@ -233,6 +254,42 @@ void irq_handler_reset(void)
   while (1);
 }
 
+
+void irq_handler_sercom1(void) //We use IRQ sources "DRDY" and "Stop"
+{
+	if ((REG_SERCOM1_I2CS_INTFLAG & 4) == 1) //Bit 2 – DRDY: Data Ready
+	{
+		if ((REG_SERCOM1_I2CS_STATUS & 8) == 1) //DIR == 1 = Master read operation is in progress.
+		{
+			if (ESPbyteIndex <  ESPpacketlength)
+				REG_SERCOM1_I2CS_DATA = *(uint8_t*)(EspPacket + ESPbyteIndex); //write data
+			else
+				REG_SERCOM1_I2CS_DATA = 0xFF;
+				
+			if (ESPbyteIndex == 00)
+				temp =  *(uint8_t*)(EspPacket); //first byte of data packet.
+					
+			if (ESPbyteIndex <=  ESPpacketlength)	
+				ESPbyteIndex++;
+		}
+		else
+			ESPbyteIndex = REG_SERCOM1_I2CS_DATA; //read data
+	}
+	
+	if ((REG_SERCOM1_I2CS_INTFLAG & 1) == 1) //Bit 0 – PREC: Stop Received. This flag is set when a stop condition is detected for a transaction being processed
+	{
+		REG_SERCOM1_I2CS_INTFLAG = REG_SERCOM1_I2CS_INTFLAG | 1; //Writing a one to this bit will clear the Stop Received interrupt flag.
+		if (ESPbyteIndex > ESPpacketlength)
+		{
+			if (temp != 0)
+				*(uint8_t*)(EspPacket) = 0;
+		}
+		ESPbyteIndex = 0;
+	}
+}
+
+
+
 void irq_handler_dmac(void)
 {
 	//TODO implement function. We process our ADC results here!
@@ -248,9 +305,10 @@ void sendESPpacket()
 
 void  enableDMA ()
 {
-	*((uint16_t*)0x20000022) = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
-	*((uint32_t*)0x20000024) = REG_ADC_RESULT;//Source address
-	*((uint32_t*)0x20000028) = 0x20000040 ;//Destination address 0x20000030 + 0x10 (transaction length)
+	DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
+	DMAdescriptor.SRCADDR = REG_ADC_RESULT;//Source address
+	DMAdescriptor.DSTADDR = &DMAresults + 0x10 ;//Destination address 0x10 (transaction length), see manual
+	DMAdescriptor.DESCADDR = 0;	
 	REG_DMAC_CHID = 0;
 	REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;
 }
@@ -272,18 +330,19 @@ void enable_TC1()
 void COnfigSerCom1 ()
 {
 	REG_GCLK_CLKCTRL = 0x410F; //01000001 00001111, Clock Enable, GCLK1, GCLK_SERCOM1_CORE
-	REG_SERCOM1_I2CM_CTRLB = 0x500; // 0000 0101 00000000, 
+	REG_SERCOM1_I2CS_CTRLB = 0x500; // 0000 0101 00000000, Send ACK. Automatic acknowledge is enabled.Group command is disabled.Smart mode is enabled.
 	do {
-  	} while (REG_SERCOM1_I2CM_SYNCBUSY != 0);
+  	} while (REG_SERCOM1_I2CS_SYNCBUSY != 0);
   	
   	REG_SERCOM1_I2CS_ADDR = 0xC8; //the as address
-  	REG_SERCOM1_I2CM_CTRLA = 0x100012;//0001 0000 - 0000 0000 - 0001 0010, 50-100ns hold time, enable, 
+  	REG_SERCOM1_I2CS_CTRLA = 0x100012;//0001 0000 - 0000 0000 - 0001 0010, slave config(!), 50-100ns hold time, enable, 
+  					   //Standard-mode (Sm) up to 100 kHz and Fast-mode (Fm) up to 400 kHz
 	do {
-  	} while (REG_SERCOM1_I2CM_SYNCBUSY != 0);
+  	} while (REG_SERCOM1_I2CS_SYNCBUSY != 0);
   	
   	REG_NVIC_PRIO2 = (REG_NVIC_PRIO2 & 0xFF00FFFF) | 0xC00000;
   	REG_NVIC_SETENA = 0x400; //Enable interrupt: 0100 00000000 = int 10 = our SerCom IRQ.
-  	REG_SERCOM1_I2CM_INTENSET = 5;
+  	REG_SERCOM1_I2CS_INTENSET = 5;//enables the Data Ready interrupt and the Stop Received interrupt
 }
 
 void configureNestedVectoredInterruptController ()
@@ -298,8 +357,8 @@ void configureNestedVectoredInterruptController ()
 
 void configureDirectMemoryAccessController ()
 {
-	REG_DMAC_BASEADDR = 0x20000020; //Descriptor memory section base address, 0x10 bytes long
-	*((uint16_t*)0x20000020) = 0x909; //0000 1001 0000 1001.  stepsize = 0, So next address = beatsize*1
+	REG_DMAC_BASEADDR = &DMAdescriptor; 
+	DMAdescriptor.BTCTRL = 0x909; //0000 1001 0000 1001.  stepsize = 0, So next address = beatsize*1
 					   //STEPSEL = 0, so DST
 					   // DSTINC = 1, so auto increment destination
 					   // SRCINC = 0, so no auto increment on source.
@@ -307,7 +366,7 @@ void configureDirectMemoryAccessController ()
 					   // blockact = 1 = INT = Channel in normal operation and block interrupt
 					   //Event Output Selection = 0, DISABLE, no event generation
 					   //valid.
-	REG_DMAC_WRBADDR  = 0x20000010; //Write-Back Memory Section Base Address, 0x10 bytes long
+	REG_DMAC_WRBADDR  = &DMAdescriptorwriteback; //Write-Back Memory Section Base Address, 0x10 bytes long
 	REG_DMAC_PRICTRL0 = 0x81818181; //10000001 10000001 10000001 10000001, Round-robin scheduling scheme for channels with level 3 priority.
 	REG_DMAC_CHID = 0;//Channel ID 0
 	REG_DMAC_CHCTRLB = 0x801200 ; // 00000000 10000000 00010010 00000000

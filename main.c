@@ -329,9 +329,11 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 	
 	enableDMA();
 
+	//TODO process the ADC results here now!
+
 	REG_PORT_OUTCLR = 0x2000000;//set pin 25 low.
 	
-	//TODO process the DMA results now!
+	
 }
 
 

@@ -261,7 +261,7 @@ void irq_handler_reset(void)
 }
 
 
-void irq_handler_sercom1(void) //We use IRQ sources "DRDY" and "Stop"
+void irq_handler_sercom1(void) //We've configured sercom to use IRQ sources "DRDY" and "Stop"
 {
 	if ((REG_SERCOM1_I2CS_INTFLAG & 4) == 1) //Bit 2 – DRDY: Data Ready
 	{
@@ -294,17 +294,6 @@ void irq_handler_sercom1(void) //We use IRQ sources "DRDY" and "Stop"
 	}
 }
 
-void  enableDMA ()
-{
-	DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
-	DMAdescriptor.SRCADDR = REG_ADC_RESULT;//Source address
-	DMAdescriptor.DSTADDR = &DMAresults + 1 ;//Destination address + (transaction length), see manual
-	DMAdescriptor.DESCADDR = 0;	
-	REG_DMAC_CHID = 0;
-	REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;
-}
-
-
 void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Complete interrupt and Channel Transfer Error interrupt.
 {
 	REG_DMAC_CHID = REG_DMAC_INTPEND & 7; //These bits store the lowest channel number with pending interrupts.
@@ -332,10 +321,17 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 	//TODO process the ADC results here now!
 
 	REG_PORT_OUTCLR = 0x2000000;//set pin 25 low.
-	
-	
 }
 
+void  enableDMA ()
+{
+	DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
+	DMAdescriptor.SRCADDR = REG_ADC_RESULT;//Source address
+	DMAdescriptor.DSTADDR = &DMAresults + 1 ;//Destination address + (transaction length), see manual
+	DMAdescriptor.DESCADDR = 0;	
+	REG_DMAC_CHID = 0;
+	REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;
+}
 
 void sendESPpacket()
 {

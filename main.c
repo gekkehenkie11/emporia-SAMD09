@@ -305,7 +305,7 @@ void  enableDMA ()
 }
 
 
-void irq_handler_dmac(void)
+void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Complete interrupt and Channel Transfer Error interrupt.
 {
 	REG_DMAC_CHID = REG_DMAC_INTPEND & 7; //These bits store the lowest channel number with pending interrupts.
 	uint8_t CHintflag = REG_DMAC_CHINTFLAG;

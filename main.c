@@ -53,6 +53,8 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 
 #define REG_PORT_DIR	            (*(RwReg  *)0x41004400UL)
 #define REG_PORT_OUT	            (*(RwReg  *)0x41004410UL) 
+#define REG_PORT_OUTCLR            (*(RwReg  *)0x41004414UL) /**< \brief (PORT) Data Output Value Clear 0 */
+#define REG_PORT_OUTSET            (*(RwReg  *)0x41004418UL) /**< \brief (PORT) Data Output Value Set 0 */
 #define REG_PINCFG2	            (*(RwReg8 *)0x41004442UL) 
 #define REG_PINCFG3	            (*(RwReg8 *)0x41004443UL) 
 #define REG_PINCFG4	            (*(RwReg8 *)0x41004444UL) 
@@ -81,12 +83,14 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 
 #define REG_DMAC_CTRL              (*(RwReg16*)0x41004800UL) /**< \brief (DMAC) Control */
 #define REG_DMAC_PRICTRL0          (*(RwReg  *)0x41004814UL) /**< \brief (DMAC) Priority Control 0 */
+#define REG_DMAC_INTPEND           (*(RwReg16*)0x41004820UL) /**< \brief (DMAC) Interrupt Pending */
 #define REG_DMAC_BASEADDR          (*(RwReg  *)0x41004834UL) /**< \brief (DMAC) Descriptor Memory Section Base Address */
 #define REG_DMAC_WRBADDR           (*(RwReg  *)0x41004838UL) /**< \brief (DMAC) Write-Back Memory Section Base Address */
 #define REG_DMAC_CHID              (*(RwReg8 *)0x4100483FUL) /**< \brief (DMAC) Channel ID */
 #define REG_DMAC_CHCTRLA           (*(RwReg8 *)0x41004840UL) /**< \brief (DMAC) Channel Control A */
 #define REG_DMAC_CHCTRLB           (*(RwReg  *)0x41004844UL) /**< \brief (DMAC) Channel Control B */
 #define REG_DMAC_CHINTENSET        (*(RwReg8 *)0x4100484DUL) /**< \brief (DMAC) Channel Interrupt Enable Set */
+#define REG_DMAC_CHINTFLAG         (*(RwReg8 *)0x4100484EUL) /**< \brief (DMAC) Channel Interrupt Flag Status and Clear */
 
 #define REG_NVIC_SETENA	    (*(RwReg  *)0xE000E100UL) //Interrupt Set-Enable Register
 #define REG_NVIC_PRIO1		    (*(RwReg  *)0xE000E404UL) //Interrupt Priority Register 1
@@ -119,6 +123,10 @@ uint8_t temp = 0;
 uint8_t EspPacket[ESPpacketlength]; //The final packet that we send to the ESP
 uint16_t DMAresults[8]; //We copy the 8 ADC results to this buffer using DMA
 			//Layout: MainCT1_V, MainCT1_A, MainCT2_V, MainCT2_A, MainCT_3_V, MainCT_3_A, Mux1_A, Mux2_A
+
+uint8_t MuxCounter = 0; //Varies between 0 and 7 to switch between the 8 muxes, each serving 2 50A CT's			
+uint32_t outputpinTable [8] = { 0x1000000, 0x1010000, 0x1020000, 0x1030000, 0, 0x10000, 0x20000, 0x30000 }; //all possible combinations of pin 16, 17 and 24.
+
 
 struct DMAdescriptorType {           
   uint16_t BTCTRL;
@@ -286,16 +294,6 @@ void irq_handler_sercom1(void) //We use IRQ sources "DRDY" and "Stop"
 	}
 }
 
-void irq_handler_dmac(void)
-{
-	//TODO implement function. We process our ADC results here!
-}
-
-void sendESPpacket()
-{
-	//TODO create this routine
-}
-
 void  enableDMA ()
 {
 	DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
@@ -305,6 +303,43 @@ void  enableDMA ()
 	REG_DMAC_CHID = 0;
 	REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;
 }
+
+
+void irq_handler_dmac(void)
+{
+	REG_DMAC_CHID = REG_DMAC_INTPEND & 7; //These bits store the lowest channel number with pending interrupts.
+	uint8_t CHintflag = REG_DMAC_CHINTFLAG;
+	if ((REG_DMAC_CHINTFLAG & 2) == 1) //TCMPL: Transfer Complete. This flag is set when a block transfer is completed and the corresponding interrupt block action is enabled
+	{
+		REG_DMAC_CHINTFLAG = 2; //This flag is cleared by writing a one to it
+		//And save 0 to a DMA bool at 0x2000000C!?! TODO FIX THIS !!!
+	}
+	if ((CHintflag & 1) == 1) //Transfer Error. This flag is set when a bus error is detected during a beat transfer or when the DMAC fetches an invalid descriptor
+	{
+		REG_DMAC_CHINTFLAG = 1; //This flag is cleared by writing a one to it
+		//And save 0 to a DMA bool at 0x2000000C!?! TODO FIX THIS !!!
+	}
+	
+	uint8_t Muxnr = MuxCounter;
+	MuxCounter++;
+	MuxCounter = MuxCounter & 7; //max 7
+	
+	REG_PORT_OUTSET = 0x2000000;//00000010 00000000 00000000 00000000, so pin 25 high.
+	REG_PORT_OUT = ((REG_PORT_OUT ^ outputpinTable[Muxnr]) & 0x1030000) ^ REG_PORT_OUT; //0x1030000 = 00000001 00000011 00000000 00000000 = pins 16, 17, 24.
+	
+	enableDMA();
+
+	REG_PORT_OUTCLR = 0x2000000;//set pin 25 low.
+	
+	//TODO process the DMA results now!
+}
+
+
+void sendESPpacket()
+{
+	//TODO create this routine
+}
+
 
 void enableADC()
 {

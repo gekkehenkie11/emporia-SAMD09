@@ -263,9 +263,9 @@ void irq_handler_reset(void)
 
 void irq_handler_sercom1(void) //We've configured sercom to use IRQ sources "DRDY" and "Stop"
 {
-	if ((REG_SERCOM1_I2CS_INTFLAG & 4) == 1) //Bit 2 – DRDY: Data Ready
+	if ((REG_SERCOM1_I2CS_INTFLAG & 4) == 4) //Bit 2 – DRDY: Data Ready
 	{
-		if ((REG_SERCOM1_I2CS_STATUS & 8) == 1) //DIR == 1 = Master read operation is in progress.
+		if ((REG_SERCOM1_I2CS_STATUS & 8) == 8) //DIR == 1 = Master read operation is in progress.
 		{
 			if (ESPbyteIndex <  ESPpacketlength)
 				REG_SERCOM1_I2CS_DATA = *(uint8_t*)(EspPacket + ESPbyteIndex); //write data
@@ -298,11 +298,12 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 {
 	REG_DMAC_CHID = REG_DMAC_INTPEND & 7; //These bits store the lowest channel number with pending interrupts.
 	uint8_t CHintflag = REG_DMAC_CHINTFLAG;
-	if ((REG_DMAC_CHINTFLAG & 2) == 1) //TCMPL: Transfer Complete. This flag is set when a block transfer is completed and the corresponding interrupt block action is enabled
+	if ((CHintflag & 2) == 2) //TCMPL: Transfer Complete. This flag is set when a block transfer is completed and the corresponding interrupt block action is enabled
 	{
 		REG_DMAC_CHINTFLAG = 2; //This flag is cleared by writing a one to it
 		//And save 0 to a DMA bool at 0x2000000C!?! TODO FIX THIS !!!
 	}
+	
 	if ((CHintflag & 1) == 1) //Transfer Error. This flag is set when a bus error is detected during a beat transfer or when the DMAC fetches an invalid descriptor
 	{
 		REG_DMAC_CHINTFLAG = 1; //This flag is cleared by writing a one to it

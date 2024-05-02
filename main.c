@@ -326,7 +326,7 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 void  enableDMA ()
 {
 	DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
-	DMAdescriptor.SRCADDR = REG_ADC_RESULT;//Source address
+	DMAdescriptor.SRCADDR = &REG_ADC_RESULT;//Source address
 	DMAdescriptor.DSTADDR = &DMAresults + 1 ;//Destination address + (transaction length), see manual
 	DMAdescriptor.DESCADDR = 0;	
 	REG_DMAC_CHID = 0;

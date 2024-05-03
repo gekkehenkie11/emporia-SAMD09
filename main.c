@@ -30,6 +30,7 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 
 #define REG_SYSCTRL_PCLKSR         (*(RoReg  *)0x4000080CUL) /**< \brief (SYSCTRL) Power and Clocks Status */
 #define REG_SYSCTRL_OSC32K         (*(RwReg  *)0x40000818UL) /**< \brief (SYSCTRL) 32kHz Internal Oscillator (OSC32K) Control */
+#define REG_SYSCTRL_OSC8M          (*(RwReg  *)0x40000820UL) /**< \brief (SYSCTRL) 8MHz Internal Oscillator (OSC8M) Control */
 #define REG_SYSCTRL_DFLLCTRL       (*(RwReg16*)0x40000824UL) /**< \brief (SYSCTRL) DFLL48M Control */
 #define REG_SYSCTRL_DFLLVAL        (*(RwReg  *)0x40000828UL) /**< \brief (SYSCTRL) DFLL48M Value */
 
@@ -492,14 +493,15 @@ void config_Sysctrl_PM_and_GCLK ()
     
 	do {
 	} while (REG_GCLK_STATUS != 0);
-    
-	REG_GCLK_CLKCTRL = 0x4007;
-	REG_GCLK_CLKCTRL = 0x410F;
-	REG_GCLK_CLKCTRL = 0x4112;    
-	REG_GCLK_CLKCTRL = 0x4113;    
+
+	REG_GCLK_CLKCTRL = 0x4007; //0100 0000 0000 0111, enable GCLK0 EVSYS_CHANNEL_0
+	REG_GCLK_CLKCTRL = 0x410F; //0100 0001 0000 1111, enable GCLK1 SERCOM1_CORE
+	REG_GCLK_CLKCTRL = 0x4112; //0100 0001 0001 0010, enable GCLK1 TC2  
+	REG_GCLK_CLKCTRL = 0x4113; //0100 0001 0001 0011, enable GCLK1 ADC
     
 	REG_PM_APBCMASK = 0x14A; 
-	REG_PM_APBCMASK = 0; 
+	REG_SYSCTRL_OSC8M = 0; 
+
 }
 
 void adc_config() {
@@ -527,6 +529,7 @@ void adc_config() {
 	REG_ADC_EVCTRL = 1; //A new conversion will be triggered on any incoming event
 	do {
 	}  while (REG_ADC_STATUS != 0);
+	
 }
 
 int main(void)

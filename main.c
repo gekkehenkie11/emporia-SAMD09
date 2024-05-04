@@ -502,7 +502,6 @@ void config_Sysctrl_PM_and_GCLK ()
     
 	REG_PM_APBCMASK = 0x14A; 
 	REG_SYSCTRL_OSC8M = 0; 
-
 }
 
 void adc_config() {

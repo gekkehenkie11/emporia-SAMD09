@@ -135,7 +135,7 @@ struct DMAdescriptorType {
   uint32_t SRCADDR;
   uint32_t DSTADDR;
   uint32_t DESCADDR;
-}  DMAdescriptor, DMAdescriptorwriteback;
+}  __attribute__((aligned(16)))DMAdescriptor, __attribute__((aligned(16)))DMAdescriptorwriteback;
 
 extern unsigned int _etext;
 extern unsigned int _data;

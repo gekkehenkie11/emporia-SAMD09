@@ -112,13 +112,12 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 #define SCB_VTOR_TBLOFF_Pos                 7                                             /*!< SCB VTOR: TBLOFF Position */
 #define SCB_VTOR_TBLOFF_Msk                (0x1FFFFFFUL << SCB_VTOR_TBLOFF_Pos)           /*!< SCB VTOR: TBLOFF Mask */
 
-
 #define DUMMY __attribute__ ((weak, alias ("irq_handler_dummy")))
-
 
 #define ESPpacketlength       0x11C
 
 bool alldataready = false;
+bool dmabool = false;
 uint8_t ESPbyteIndex = 0; 
 uint8_t temp = 0;
 uint8_t EspPacket[ESPpacketlength]; //The final packet that we send to the ESP
@@ -261,7 +260,6 @@ void irq_handler_reset(void)
   while (1);
 }
 
-
 void irq_handler_sercom1(void) //We've configured sercom to use IRQ sources "DRDY" and "Stop"
 {
 	if ((REG_SERCOM1_I2CS_INTFLAG & 4) == 4) //Bit 2 – DRDY: Data Ready
@@ -302,13 +300,13 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 	if ((CHintflag & 2) == 2) //TCMPL: Transfer Complete. This flag is set when a block transfer is completed and the corresponding interrupt block action is enabled
 	{
 		REG_DMAC_CHINTFLAG = 2; //This flag is cleared by writing a one to it
-		//And save 0 to a DMA bool at 0x2000000C!?! TODO FIX THIS !!!
+		dmabool = false;
 	}
 	
 	if ((CHintflag & 1) == 1) //Transfer Error. This flag is set when a bus error is detected during a beat transfer or when the DMAC fetches an invalid descriptor
 	{
 		REG_DMAC_CHINTFLAG = 1; //This flag is cleared by writing a one to it
-		//And save 0 to a DMA bool at 0x2000000C!?! TODO FIX THIS !!!
+		dmabool = false;
 	}
 	
 	uint8_t Muxnr = MuxCounter;
@@ -327,19 +325,22 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 
 void  enableDMA ()
 {
-	DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
-	DMAdescriptor.SRCADDR = &REG_ADC_RESULT;//Source address
-	DMAdescriptor.DSTADDR = &DMAresults + 1 ;//Destination address + (transaction length), see manual
-	DMAdescriptor.DESCADDR = 0;	
-	REG_DMAC_CHID = 0;
-	REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;
+	if (dmabool == false)
+	{
+		dmabool = true;
+		DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
+		DMAdescriptor.SRCADDR = &REG_ADC_RESULT;//Source address
+		DMAdescriptor.DSTADDR = &DMAresults + 1 ;//Destination address + (transaction length), see manual
+		DMAdescriptor.DESCADDR = 0;	
+		REG_DMAC_CHID = 0;
+		REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;
+	}
 }
 
 void sendESPpacket()
 {
 	//TODO create this routine
 }
-
 
 void enableADC()
 {
@@ -529,7 +530,6 @@ void adc_config() {
 	REG_ADC_EVCTRL = 1; //A new conversion will be triggered on any incoming event
 	do {
 	}  while (REG_ADC_STATUS != 0);
-	
 }
 
 int main(void)

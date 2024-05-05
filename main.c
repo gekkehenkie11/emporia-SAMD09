@@ -260,19 +260,19 @@ void irq_handler_reset(void)
   while (1);
 }
 
-void irq_handler_sercom1(void) //We've configured sercom to use IRQ sources "DRDY" and "Stop"
+void irq_handler_sercom1(void) //We've configured sercom to use IRQ sources "Data Ready" and "Stop received"
 {
 	if ((REG_SERCOM1_I2CS_INTFLAG & 4) == 4) //Bit 2 – DRDY: Data Ready
 	{
 		if ((REG_SERCOM1_I2CS_STATUS & 8) == 8) //DIR == 1 = Master read operation is in progress.
 		{
 			if (ESPbyteIndex <  ESPpacketlength)
-				REG_SERCOM1_I2CS_DATA = *(uint8_t*)(EspPacket + ESPbyteIndex); //write data
+				REG_SERCOM1_I2CS_DATA = *(uint8_t*)(EspPacket[ESPbyteIndex]); //write data
 			else
 				REG_SERCOM1_I2CS_DATA = 0xFF;
 				
-			if (ESPbyteIndex == 00)
-				temp =  *(uint8_t*)(EspPacket); //first byte of data packet.
+			if (ESPbyteIndex == 0)
+				temp =  *(uint8_t*)(EspPacket[0]); //first byte of data packet.
 					
 			if (ESPbyteIndex <=  ESPpacketlength)	
 				ESPbyteIndex++;
@@ -287,7 +287,7 @@ void irq_handler_sercom1(void) //We've configured sercom to use IRQ sources "DRD
 		if (ESPbyteIndex > ESPpacketlength)
 		{
 			if (temp != 0)
-				*(uint8_t*)(EspPacket) = 0;
+				*(uint8_t*)(EspPacket[0]) = 0;
 		}
 		ESPbyteIndex = 0;
 	}
@@ -359,7 +359,7 @@ void enable_TC1()
 void COnfigSerCom1 ()
 {
 	REG_GCLK_CLKCTRL = 0x410F; //01000001 00001111, Clock Enable, GCLK1, GCLK_SERCOM1_CORE
-	REG_SERCOM1_I2CS_CTRLB = 0x500; // 0000 0101 00000000, Send ACK. Automatic acknowledge is enabled.Group command is disabled.Smart mode is enabled.
+	REG_SERCOM1_I2CS_CTRLB = 0x500; // 0000 0101 00000000, Send ACK. SMEN = 1 = Automatic acknowledge is enabled.Group command is disabled.Smart mode is enabled.
 	do {
   	} while (REG_SERCOM1_I2CS_SYNCBUSY != 0);
   	
@@ -500,7 +500,7 @@ void config_Sysctrl_PM_and_GCLK ()
 	REG_GCLK_CLKCTRL = 0x4112; //0100 0001 0001 0010, enable GCLK1 TC2  
 	REG_GCLK_CLKCTRL = 0x4113; //0100 0001 0001 0011, enable GCLK1 ADC
     
-	REG_PM_APBCMASK = 0x14A; 
+	REG_PM_APBCMASK = 0x14A; //0000 0001 0100 1010 //enable: ADC, TC1, SERCOM1
 	REG_SYSCTRL_OSC8M = 0; 
 }
 

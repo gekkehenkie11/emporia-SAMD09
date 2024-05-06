@@ -469,7 +469,7 @@ void config_EventSystem ()
 void config_Sysctrl_PM_and_GCLK ()
 {
 	REG_SYSCTRL_OSC32K = 0;
-	REG_SYSCTRL_DFLLCTRL = REG_SYSCTRL_DFLLCTRL & 0xFF7F;
+	REG_SYSCTRL_DFLLCTRL = REG_SYSCTRL_DFLLCTRL & 0xFF7F; // & 1111111101111111 = The oscillator is always on, if enabled.
     	do {
 	} while ((REG_SYSCTRL_PCLKSR & 0x10) == 0); //DFLLRDY. Wait for oscillator stabilization
     
@@ -479,18 +479,18 @@ void config_Sysctrl_PM_and_GCLK ()
     	
 	calibdat = calibdat << 10;
 	REG_SYSCTRL_DFLLVAL = calibdat | *((uint32_t*)0x806028) & 0x3ff;
-	REG_SYSCTRL_DFLLCTRL = 2;
+	REG_SYSCTRL_DFLLCTRL = 2; //The DFLL oscillator is enabled.
     
 	do {
 	} while ((REG_SYSCTRL_PCLKSR & 0x10) == 0); //DFLLRDY. Wait for oscillator stabilization
     
-	REG_GCLK_GENCTRL = 0x10700;
+	REG_GCLK_GENCTRL = 0x10700; //0000 0001 - 0000 0111 - 0000 0000 GCLKGEN0. Source  = DFLL48M output. The generic clock generator is enabled
     
 	do {
 	} while (REG_GCLK_STATUS != 0);
     
-	REG_GCLK_GENCTRL = 0x30701;
-	REG_GCLK_GENDIV = 0x301;
+	REG_GCLK_GENCTRL = 0x30701; //0000 0011 - 0000 0111 - 0000 0001 GCLKGEN1. Source = DFLL48M output. The generic clock generator is enabled
+	REG_GCLK_GENDIV = 0x301; //0000 0011 0000 0001. GCLKGEN1 3 division bits.
     
 	do {
 	} while (REG_GCLK_STATUS != 0);
@@ -506,7 +506,7 @@ void config_Sysctrl_PM_and_GCLK ()
 
 void adc_config() {
 
-	REG_ADC_CTRLA = 1;
+	REG_ADC_CTRLA = 1; //SWRST: Writing a one to this bit resets all registers in the ADC,to their initial state, and the ADC will be disabled
 	do {
 	}   while (REG_ADC_STATUS != 0);
     
@@ -519,12 +519,13 @@ void adc_config() {
 					//  00000001 = GAIN 2X.
 					// 0010  =inputoffset: 2.
 					// 0111 = Inputscan= 7+1 = 8
-	REG_ADC_CTRLB = 0x101;  //12 bits conversion
+	REG_ADC_CTRLB = 0x101; //0000 0001 0000 0001
+				//ADC clock : Peripheral clock = 1 : 8
+				//12 bits conversion
 				//Disable digital result correction
 				//The ADC conversion result is right-adjusted in the RESULT register.
 				//Single conversion mode
-				//Differential mode. In this mode, the voltage difference between the MUXPOS and MUXNEG
-				//inputs will be converted by the ADC
+				//Differential mode. In this mode, the voltage difference between the MUXPOS and MUXNEG inputs will be converted by the ADC
 	REG_ADC_INTFLAG = 0xF; //clear intflags
 	REG_ADC_EVCTRL = 1; //A new conversion will be triggered on any incoming event
 	do {

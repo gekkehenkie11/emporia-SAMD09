@@ -121,7 +121,7 @@ bool dmabool = false;
 uint8_t ESPbyteIndex = 0; 
 uint8_t temp = 0;
 uint8_t EspPacket[ESPpacketlength]; //The final packet that we send to the ESP
-uint16_t DMAresults[8]; //We copy the 8 ADC results to this buffer using DMA
+int16_t DMAresults[8]; //We copy the 8 ADC results to this buffer using DMA
 			//Layout: MainCT1_V, MainCT1_A, MainCT2_V, MainCT2_A, MainCT_3_V, MainCT_3_A, Mux1_A, Mux2_A
 
 uint8_t MuxCounter = 0; //Varies between 0 and 7 to switch between the 8 muxes, each serving 2 50A CT's			

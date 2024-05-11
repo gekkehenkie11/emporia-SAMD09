@@ -119,13 +119,20 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 bool alldataready = false;
 bool dmabool = false;
 uint8_t ESPbyteIndex = 0; 
+
 uint8_t temp = 0;
+uint8_t DMAresultIndex = 0;
 uint8_t EspPacket[ESPpacketlength]; //The final packet that we send to the ESP
-int16_t DMAresults[8]; //We copy the 8 ADC results to this buffer using DMA
+int16_t DMAresults[6][8]; //We copy the 8 ADC results to this buffer using DMA
 			//Layout: MainCT1_V, MainCT1_A, MainCT2_V, MainCT2_A, MainCT_3_V, MainCT_3_A, Mux1_A, Mux2_A
+
+//Something temporarily, currently to analyze results			
+uint16_t testindex = 0;
+uint16_t testresults[0x500];
 
 uint8_t MuxCounter = 0; //Varies between 0 and 7 to switch between the 8 muxes, each serving 2 50A CT's			
 uint32_t outputpinTable [8] = { 0x1000000, 0x1010000, 0x1020000, 0x1030000, 0, 0x10000, 0x20000, 0x30000 }; //all possible combinations of pin 16, 17 and 24.
+uint16_t averages[22]; //Here we save the averages: 3x voltages, 3x  Main CT current, 16x small CT current
 
 
 struct DMAdescriptorType {           
@@ -135,6 +142,30 @@ struct DMAdescriptorType {
   uint32_t DSTADDR;
   uint32_t DESCADDR;
 }  __attribute__((aligned(16)))DMAdescriptor, __attribute__((aligned(16)))DMAdescriptorwriteback;
+
+#define __SIZE_OF__(x) \
+({x __tmp_x_[2]; \
+((unsigned int)(&__tmp_x_[1]) - (unsigned int)(&__tmp_x_[0])); \
+})
+
+#define __SIZE_OF_VAR__(x) ((char *)(&x + 1) - (char *)&x)
+
+struct CalcBlocType {
+int32_t ADCCurrentsum[19]; //all ADC currents summed up. Max 12987 times FFFF = 32BA CD45, so 4 bytes are enough. Moet signed zijn!!!
+int64_t ADCVoltsquaresum[3];
+int32_t ADCVoltagesum[3]; 
+int64_t ADCsquareCurrentsum[19]; //8 bytes. Signed want we adden alleen positieven
+int64_t RawPVsum[19][3];
+
+uint16_t SampleCounter; //Keeps track of the amount of samples it has taken for each ESP packet.
+uint32_t Ct1Cycles;
+uint16_t AmountC1Cycles;
+uint32_t Ct2Cycles;
+uint16_t AmountC2Cycles;
+uint32_t Ct3Cycles;
+uint16_t AmountC3Cycles;
+} calcblock; //vervangen door calcblock[2]
+
 
 extern unsigned int _etext;
 extern unsigned int _data;
@@ -295,6 +326,13 @@ void irq_handler_sercom1(void) //We've configured sercom to use IRQ sources "Dat
 
 void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Complete interrupt and Channel Transfer Error interrupt.
 {
+
+	uint8_t lastindex = DMAresultIndex;
+	
+	DMAresultIndex++;
+	if (DMAresultIndex > 5)
+		DMAresultIndex = 0;
+
 	REG_DMAC_CHID = REG_DMAC_INTPEND & 7; //These bits store the lowest channel number with pending interrupts.
 	uint8_t CHintflag = REG_DMAC_CHINTFLAG;
 	if ((CHintflag & 2) == 2) //TCMPL: Transfer Complete. This flag is set when a block transfer is completed and the corresponding interrupt block action is enabled
@@ -317,8 +355,95 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 	REG_PORT_OUT = ((REG_PORT_OUT ^ outputpinTable[Muxnr]) & 0x1030000) ^ REG_PORT_OUT; //0x1030000 = 00000001 00000011 00000000 00000000 = pins 16, 17, 24.
 	
 	enableDMA();
+	
 
-	//TODO process the ADC results here now!
+	int8_t lastindexMin2 = lastindex - 2;
+	if (lastindexMin2 < 0)
+		lastindexMin2 = lastindex + 4;
+		
+	int8_t lastindexMin4 = lastindex - 4;
+	if (lastindexMin4 < 0)
+		lastindexMin4 = lastindex + 2;
+
+	int a = 0;
+	int dif1;
+
+
+	//Now process the ADC results! 
+	
+	//For voltages: we use each time the lateset ADC buffer! Then:
+	//1. Sum up all ADC results
+	//2. Difference = Latest ADC result - Average result (from last 0.5 second).
+	//3. Sum up the square of that.
+	
+	//For the 3 main CT amps: Use ADC results from 2 buffers ago! Then:
+	//1. Sum up all ADC results
+	//2. Difference = Latest ADC result - Average result (from last 0.5 second).
+	//3. Sum up the square of that.
+	
+	//Voor 50A CT's: Use ADC results from 4 buffers ago! Then:
+	//1. Sum up all ADC results
+	//2. Difference = Latest ADC result - Average result (from last 0.5 second).
+	//3. Sum up the square of that.
+	
+	//Voor RawPV: Use amp result from point 2 above, multiply with (latest (!) ADC voltage - Average voltage (from last 0.5 second, so the value from 22 values table)).
+	
+
+	//Process the 3 mains first
+	for (int ct = 0; ct < 3; ct++)
+	{
+		//Process the voltages for the 3 mains
+		calcblock.ADCVoltagesum[ct] += DMAresults[lastindex][a]; //Save the sum of all ADC Voltages. At DMAresults 0,2,4. For voltages we always take the latest buffer.
+		dif1 = DMAresults[lastindex][a] - averages[ct];
+		calcblock.ADCVoltsquaresum[ct] += dif1 * dif1;   //moeten we dit niet casten naar meer bytes ?!?!
+		
+		//Process the currents for the 3 mains
+		calcblock.ADCCurrentsum[ct] += DMAresults[lastindexMin2][a+1]; //Save the sum of all ADC currents (at DMA 1,3,5)
+		dif1 = DMAresults[lastindexMin2][a+1] - averages[ct+3];
+		calcblock.ADCsquareCurrentsum[ct] += dif1 * dif1;   //moeten we dit niet casten naar meer bytes ?!?!		
+		
+		//Process the RawPV's for the 3 mains
+		for (int i = 0; i < 3; i++)
+		{
+			//int64_t RawPVsum[19][3];
+			calcblock.RawPVsum[ct][i] -= dif1 * (DMAresults[lastindex][i*2] - averages[i]);  //current * volts (at DMAresults 0,2,4)
+		}
+
+		a += 2;		
+	}
+
+	//Process the 2 muxed small CT's
+	for (int i = 0; i < 2; i++)
+	{
+		calcblock.ADCCurrentsum[3 + (Muxnr*2) + i] += DMAresults[lastindexMin4][6+i]; //Save the sum of all ADC currents for the muxed small CT's (at DMA 6,7)
+		dif1 = DMAresults[lastindexMin4][6+i] - averages[6 + (Muxnr*2) + i];
+		calcblock.ADCsquareCurrentsum[3 + (Muxnr*2) + i] += dif1 * dif1;
+		
+		//Process the RawPV's for the 2 muxed small CT's
+		for (int x = 0; x < 3; x++)
+		{
+			calcblock.RawPVsum[3 + (Muxnr*2) + i][x] -= dif1 * (DMAresults[lastindex][x*2] - averages[x]);  //current * volts
+
+		}
+	}
+		
+
+	//Doesnt work yet, TODO use double buffering in the future for the calcbuffer!!! And clear the old one.
+	/*		
+	calcblock.SampleCounter++;
+	if (calcblock.SampleCounter > 12986)
+	{
+		uint8_t* idp = &calcblock;
+		for (int x = 0; x < __SIZE_OF_VAR__(calcblock); x++)
+			*(uint8_t*)(idp+x) = 0;
+	}
+	*/
+
+	//Right now for testing purposes, save DMA results for CT2 to a buffer to analyze.
+	testresults[testindex] = DMAresults[lastindex][2];
+	testindex++;
+	if (testindex >= 0x500)
+		testindex = 0;
 
 	REG_PORT_OUTCLR = 0x2000000;//set pin 25 low.
 }
@@ -330,7 +455,7 @@ void  enableDMA ()
 		dmabool = true;
 		DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
 		DMAdescriptor.SRCADDR = &REG_ADC_RESULT;//Source address
-		DMAdescriptor.DSTADDR = &DMAresults + 1 ;//Destination address + (transaction length), see manual
+		DMAdescriptor.DSTADDR = &DMAresults[DMAresultIndex+1][0] ;//Destination address + (transaction length), see manual
 		DMAdescriptor.DESCADDR = 0;	
 		REG_DMAC_CHID = 0;
 		REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;
@@ -535,6 +660,14 @@ void adc_config() {
 int main(void)
 {
 	REG_NVMCTRL_CTRLB = 6;
+	
+	uint8_t* idp = &calcblock;
+	for (int x = 0; x < __SIZE_OF_VAR__(calcblock); x++)
+		*(uint8_t*)(idp+x) = 0;
+			
+	for (int i = 0; i < 22; i++)
+		averages[i] = 0;
+	
 	config_PORT();
 	config_Sysctrl_PM_and_GCLK ();
 	Config_NVMCTRL();

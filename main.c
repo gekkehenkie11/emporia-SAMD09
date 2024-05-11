@@ -128,7 +128,7 @@ int16_t DMAresults[6][8]; //We copy the 8 ADC results to this buffer using DMA
 
 //Something temporarily, currently to analyze results			
 uint16_t testindex = 0;
-uint16_t testresults[0x500];
+uint16_t testresults[0x300];
 
 uint8_t MuxCounter = 0; //Varies between 0 and 7 to switch between the 8 muxes, each serving 2 50A CT's			
 uint32_t outputpinTable [8] = { 0x1000000, 0x1010000, 0x1020000, 0x1030000, 0, 0x10000, 0x20000, 0x30000 }; //all possible combinations of pin 16, 17 and 24.
@@ -164,7 +164,8 @@ uint32_t Ct2Cycles;
 uint16_t AmountC2Cycles;
 uint32_t Ct3Cycles;
 uint16_t AmountC3Cycles;
-} calcblock; //vervangen door calcblock[2]
+} calcblock[2]; //double buffered
+int8_t cbi = 0; //calcblock index varies between 0 and 1 for the double buffer
 
 
 extern unsigned int _etext;
@@ -371,42 +372,35 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 
 	//Now process the ADC results! 
 	
-	//For voltages: we use each time the lateset ADC buffer! Then:
-	//1. Sum up all ADC results
+	//For voltages, 3 main CT amps and the 50A CT's:
+	//1. Sum up all ADC results (we use that to calculate the average when we send the ESP packet)
 	//2. Difference = Latest ADC result - Average result (from last 0.5 second).
 	//3. Sum up the square of that.
 	
-	//For the 3 main CT amps: Use ADC results from 2 buffers ago! Then:
-	//1. Sum up all ADC results
-	//2. Difference = Latest ADC result - Average result (from last 0.5 second).
-	//3. Sum up the square of that.
+	//We use different ADC result buffers though! For the voltages we use the latest buffer. For the mains currents we use
+	//the ADC results from 2 buffers ago. And for the 50A CT currents we use the ADC results from 4 buffers ago!
 	
-	//Voor 50A CT's: Use ADC results from 4 buffers ago! Then:
-	//1. Sum up all ADC results
-	//2. Difference = Latest ADC result - Average result (from last 0.5 second).
-	//3. Sum up the square of that.
-	
-	//Voor RawPV: Use amp result from point 2 above, multiply with (latest (!) ADC voltage - Average voltage (from last 0.5 second, so the value from 22 values table)).
+	//For RawPV: Use amp result from point 2 above, multiply with (latest (!) ADC voltage - Average voltage (from last 0.5 second, so the value from 22 values table)).
 	
 
 	//Process the 3 mains first
 	for (int ct = 0; ct < 3; ct++)
 	{
 		//Process the voltages for the 3 mains
-		calcblock.ADCVoltagesum[ct] += DMAresults[lastindex][a]; //Save the sum of all ADC Voltages. At DMAresults 0,2,4. For voltages we always take the latest buffer.
+		calcblock[cbi].ADCVoltagesum[ct] += DMAresults[lastindex][a]; //Save the sum of all ADC Voltages. At DMAresults 0,2,4. For voltages we always take the latest buffer.
 		dif1 = DMAresults[lastindex][a] - averages[ct];
-		calcblock.ADCVoltsquaresum[ct] += dif1 * dif1;   
+		calcblock[cbi].ADCVoltsquaresum[ct] += dif1 * dif1;   
 		
 		//Process the currents for the 3 mains
-		calcblock.ADCCurrentsum[ct] += DMAresults[lastindexMin2][a+1]; //Save the sum of all ADC currents (at DMA 1,3,5)
+		calcblock[cbi].ADCCurrentsum[ct] += DMAresults[lastindexMin2][a+1]; //Save the sum of all ADC currents (at DMA 1,3,5)
 		dif1 = DMAresults[lastindexMin2][a+1] - averages[ct+3];
-		calcblock.ADCsquareCurrentsum[ct] += dif1 * dif1; 
+		calcblock[cbi].ADCsquareCurrentsum[ct] += dif1 * dif1; 
 		
 		//Process the RawPV's for the 3 mains
 		for (int i = 0; i < 3; i++)
 		{
 			//int64_t RawPVsum[19][3];
-			calcblock.RawPVsum[ct][i] -= dif1 * (DMAresults[lastindex][i*2] - averages[i]);  //current * volts (at DMAresults 0,2,4)
+			calcblock[cbi].RawPVsum[ct][i] -= dif1 * (DMAresults[lastindex][i*2] - averages[i]);  //current * volts (at DMAresults 0,2,4)
 		}
 
 		a += 2;		
@@ -415,34 +409,31 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 	//Process the 2 muxed small CT's
 	for (int i = 0; i < 2; i++)
 	{
-		calcblock.ADCCurrentsum[3 + (Muxnr*2) + i] += DMAresults[lastindexMin4][6+i]; //Save the sum of all ADC currents for the muxed small CT's (at DMA 6,7)
+		calcblock[cbi].ADCCurrentsum[3 + (Muxnr*2) + i] += DMAresults[lastindexMin4][6+i]; //Save the sum of all ADC currents for the muxed small CT's (at DMA 6,7)
 		dif1 = DMAresults[lastindexMin4][6+i] - averages[6 + (Muxnr*2) + i];
-		calcblock.ADCsquareCurrentsum[3 + (Muxnr*2) + i] += dif1 * dif1;
+		calcblock[cbi].ADCsquareCurrentsum[3 + (Muxnr*2) + i] += dif1 * dif1;
 		
 		//Process the RawPV's for the 2 muxed small CT's
 		for (int x = 0; x < 3; x++)
 		{
-			calcblock.RawPVsum[3 + (Muxnr*2) + i][x] -= dif1 * (DMAresults[lastindex][x*2] - averages[x]);  //current * volts
+			calcblock[cbi].RawPVsum[3 + (Muxnr*2) + i][x] -= dif1 * (DMAresults[lastindex][x*2] - averages[x]);  //current * volts
 
 		}
 	}
-		
 
-	//Doesnt work yet, TODO use double buffering in the future for the calcbuffer!!! And clear the old one.
-	/*		
-	calcblock.SampleCounter++;
-	if (calcblock.SampleCounter > 12986)
+	//If we have our 0.5 second of data, switch to the other calcbuffer and continue there.	
+	calcblock[cbi].SampleCounter++;
+	if (calcblock[cbi].SampleCounter > 12986)
 	{
-		uint8_t* idp = &calcblock;
-		for (int x = 0; x < __SIZE_OF_VAR__(calcblock); x++)
-			*(uint8_t*)(idp+x) = 0;
+		cbi++;
+		cbi = cbi & 1;
 	}
-	*/
+	
 
 	//Right now for testing purposes, save DMA results for CT2 to a buffer to analyze.
 	testresults[testindex] = DMAresults[lastindex][2];
 	testindex++;
-	if (testindex >= 0x500)
+	if (testindex >= 0x300)
 		testindex = 0;
 
 	REG_PORT_OUTCLR = 0x2000000;//set pin 25 low.
@@ -464,7 +455,18 @@ void  enableDMA ()
 
 void sendESPpacket()
 {
-	//TODO create this routine
+	uint8_t cbo = cbi +1; 
+	cbo = cbo & 1; //we check the other (!) calcbuffer to see if we have a finished one waiting for us to process.
+
+	if (calcblock[cbo].SampleCounter > 12986)
+	{
+		//TODO: calcaverages();
+	
+		//reset the old calcbuffer to 0
+		uint8_t* idp = &calcblock[cbo];
+		for (int x = 0; x < __SIZE_OF_VAR__(calcblock[cbo]); x++)
+			*(uint8_t*)(idp+x) = 0;
+	}
 }
 
 void enableADC()
@@ -683,8 +685,10 @@ int main(void)
 	
 	for (;;) //main program loop
 	{		
-		if (alldataready)
-			sendESPpacket();
+		
+		sendESPpacket();
+
+
 	}
 	return 0;
 }

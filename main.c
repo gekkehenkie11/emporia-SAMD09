@@ -151,7 +151,7 @@ struct DMAdescriptorType {
 #define __SIZE_OF_VAR__(x) ((char *)(&x + 1) - (char *)&x)
 
 struct CalcBlocType {
-int32_t ADCCurrentsum[19]; //all ADC currents summed up. Max 12987 times FFFF = 32BA CD45, so 4 bytes are enough. Moet signed zijn!!!
+int32_t ADCCurrentsum[19]; //all ADC currents summed up. Max 12987 times FFFF = 32BA CD45, so 4 bytes are enough. 
 int64_t ADCVoltsquaresum[3];
 int32_t ADCVoltagesum[3]; 
 int64_t ADCsquareCurrentsum[19]; //8 bytes. Signed want we adden alleen positieven
@@ -395,12 +395,12 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 		//Process the voltages for the 3 mains
 		calcblock.ADCVoltagesum[ct] += DMAresults[lastindex][a]; //Save the sum of all ADC Voltages. At DMAresults 0,2,4. For voltages we always take the latest buffer.
 		dif1 = DMAresults[lastindex][a] - averages[ct];
-		calcblock.ADCVoltsquaresum[ct] += dif1 * dif1;   //moeten we dit niet casten naar meer bytes ?!?!
+		calcblock.ADCVoltsquaresum[ct] += dif1 * dif1;   
 		
 		//Process the currents for the 3 mains
 		calcblock.ADCCurrentsum[ct] += DMAresults[lastindexMin2][a+1]; //Save the sum of all ADC currents (at DMA 1,3,5)
 		dif1 = DMAresults[lastindexMin2][a+1] - averages[ct+3];
-		calcblock.ADCsquareCurrentsum[ct] += dif1 * dif1;   //moeten we dit niet casten naar meer bytes ?!?!		
+		calcblock.ADCsquareCurrentsum[ct] += dif1 * dif1; 
 		
 		//Process the RawPV's for the 3 mains
 		for (int i = 0; i < 3; i++)

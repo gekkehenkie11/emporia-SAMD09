@@ -132,7 +132,7 @@ uint16_t testresults[0x300];
 
 uint8_t MuxCounter = 0; //Varies between 0 and 7 to switch between the 8 muxes, each serving 2 50A CT's			
 uint32_t outputpinTable [8] = { 0x1000000, 0x1010000, 0x1020000, 0x1030000, 0, 0x10000, 0x20000, 0x30000 }; //all possible combinations of pin 16, 17 and 24.
-uint16_t averages[22]; //Here we save the averages: 3x voltages, 3x  Main CT current, 16x small CT current
+int16_t averages[22]; //Here we save the averages: 3x voltages, 3x  Main CT current, 16x small CT current
 
 
 struct DMAdescriptorType {           
@@ -453,15 +453,37 @@ void  enableDMA ()
 	}
 }
 
-void sendESPpacket()
+void Check_and_sendESPpacket()
 {
 	uint8_t cbo = cbi +1; 
 	cbo = cbo & 1; //we check the other (!) calcbuffer to see if we have a finished one waiting for us to process.
-
-	if (calcblock[cbo].SampleCounter > 12986)
-	{
-		//TODO: calcaverages();
 	
+	if (calcblock[cbo].SampleCounter >= 12987)
+	{
+		//Calculate and save the averages
+		for (int i = 0; i < 3; i++)
+		{
+			//First the MainCT Voltages
+			averages[i] = calcblock[cbo].ADCVoltagesum[i] / (int32_t) 12987;
+			if (averages[i] < (int16_t) -1999)
+				averages[i] = 0;
+				
+			//Now the MainCT Currents	
+			averages[3+i] = calcblock[cbo].ADCCurrentsum[i] / (int32_t)12987;
+			if (averages[3+i] < (int16_t) -1999)
+				averages[3+i] = 0;
+		}
+			
+		//And the 16 50A CT currents	
+		for (int i = 0; i < 16; i++)
+		{
+			averages[6+i] = calcblock[cbo].ADCCurrentsum[3+i] / (int32_t)1623;	// Because 12987/8 = 1623
+			if (averages[6+i] < (int16_t) -1999)
+				averages[6+i] = 0;			
+		}
+		
+		//TODO: Now put everything into the ESP packet buffer
+						
 		//reset the old calcbuffer to 0
 		uint8_t* idp = &calcblock[cbo];
 		for (int x = 0; x < __SIZE_OF_VAR__(calcblock[cbo]); x++)
@@ -685,10 +707,7 @@ int main(void)
 	
 	for (;;) //main program loop
 	{		
-		
-		sendESPpacket();
-
-
+		Check_and_sendESPpacket();
 	}
 	return 0;
 }

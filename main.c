@@ -128,11 +128,20 @@ int16_t DMAresults[6][8]; //We copy the 8 ADC results to this buffer using DMA
 
 //Something temporarily, currently to analyze results			
 uint16_t testindex = 0;
-uint16_t testresults[0x300];
+uint16_t testresults[0x200];
 
 uint8_t MuxCounter = 0; //Varies between 0 and 7 to switch between the 8 muxes, each serving 2 50A CT's			
 uint32_t outputpinTable [8] = { 0x1000000, 0x1010000, 0x1020000, 0x1030000, 0, 0x10000, 0x20000, 0x30000 }; //all possible combinations of pin 16, 17 and 24.
 int16_t averages[22]; //Here we save the averages: 3x voltages, 3x  Main CT current, 16x small CT current
+uint8_t MuxTable[16] = { 12, 4, 13, 5, 14, 6, 11, 3, 15, 7, 18, 10, 16, 8, 17, 9 }; //used for the order of saving Current data to the final output packet
+uint32_t EORTable[64] = { 0x90E0700, 0x15121B1C, 0x31363F38, 0x2D2A2324, 0x797E7770, 0x65626B6C, 0x41464F48, 0x5D5A5354,
+			   0xE9EEE7E0, 0xF5F2FBFC, 0xD1D6DFD8, 0xCDCAC3C4, 0x999E9790, 0x85828B8C, 0xA1A6AFA8, 0xBDBAB3B4, 
+			   0xCEC9C0C7, 0xD2D5DCDB, 0xF6F1F8FF, 0xEAEDE4E3, 0xBEB9B0B7, 0xA2A5ACAB, 0x8681888F, 0x9A9D9493,
+			   0x2E292027, 0x32353C3B, 0x1611181F, 0xA0D0403, 0x5E595057, 0x42454C4B, 0x6661686F, 0x7A7D7473, 
+			   0x80878E89, 0x9C9B9295, 0xB8BFB6B1, 0xA4A3AAAD, 0xF0F7FEF9, 0xECEBE2E5, 0xC8CFC6C1, 0xD4D3DADD,
+			   0x60676E69,0x7C7B7275, 0x585F5651, 0x44434A4D, 0x10171E19, 0xC0B0205, 0x282F2621, 0x34333A3D,
+			   0x4740494E, 0x5B5C5552, 0x7F787176, 0x63646D6A, 0x3730393E, 0x2B2C2522, 0xF080106, 0x13141D1A, 
+			   0xA7A0A9AE, 0xBBBCB5B2, 0x9F989196, 0x83848D8A, 0xD7D0D9DE, 0xCBCCC5C2, 0xEFE8E1E6, 0xF3F4FDFA };
 
 typedef float fp_t;
 typedef uint32_t rep_t;
@@ -167,7 +176,7 @@ typedef struct ReadingPowerEntry ReadingPowerEntry;
 
 struct __attribute__((__packed__)) SensorReadingType
 {
-    bool is_unread;
+    uint8_t is_unread;
     uint8_t checksum;
     uint8_t unknown;
     uint8_t sequence_num;
@@ -190,7 +199,7 @@ struct DMAdescriptorType {
   uint32_t SRCADDR;
   uint32_t DSTADDR;
   uint32_t DESCADDR;
-}  __attribute__((aligned(16)))DMAdescriptor, __attribute__((aligned(16)))DMAdescriptorwriteback;
+}  __attribute__((packed, aligned(16)))DMAdescriptor, __attribute__((packed, aligned(16)))DMAdescriptorwriteback;
 
 #define __SIZE_OF__(x) \
 ({x __tmp_x_[2]; \
@@ -453,7 +462,7 @@ void irq_handler_sercom1(void) //We've configured sercom to use IRQ sources "Dat
 		if (ESPbyteIndex > ESPpacketlength)
 		{
 			if (temp != 0)
-				*(uint8_t*)(&SensorReading) = 0;
+				*(uint8_t*)(&SensorReading) = 0; //Save 0 to first byte in the Sensordata packet
 		}
 		ESPbyteIndex = 0;
 	}
@@ -567,9 +576,10 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 	//Right now for testing purposes, save DMA results for CT2 to a buffer to analyze.
 	testresults[testindex] = DMAresults[lastindex][2];
 	testindex++;
-	if (testindex >= 0x300)
+	if (testindex >= 0x200)
 		testindex = 0;
-
+		
+		
 	REG_PORT_OUTCLR = 0x2000000;//set pin 25 low.
 }
 
@@ -607,7 +617,7 @@ void Check_and_sendESPpacket()
 			if (averages[3+i] < (int16_t) -1999)
 				averages[3+i] = 0;
 		}
-			
+		
 		//And the 16 50A CT currents	
 		for (int i = 0; i < 16; i++)
 		{
@@ -616,19 +626,55 @@ void Check_and_sendESPpacket()
 				averages[6+i] = 0;			
 		}
 		
+		
 		//Now put it all in the ESP packet buffer
 		for (int i = 0; i < 3; i++)
 		{
-			SensorReading.voltage[i] = sqrtf (calcblock[cbo].ADCVoltsquaresum[i] / 129.87f);
-			SensorReading.current[i] = sqrtf (calcblock[cbo].ADCsquareCurrentsum[i] / 129.87f);
+			SensorReading.voltage[i] = sqrtf (calcblock[cbo].ADCVoltsquaresum[i] / (double)129.87);
+			SensorReading.current[i] = sqrtf (calcblock[cbo].ADCsquareCurrentsum[i] / (double)129.87);
 			for (int x = 0; x < 3; x++)
-				SensorReading.power[i].phase[x] = calcblock[cbo].RawPVsum[i][x] / 1298.7f;
+				SensorReading.power[i].phase[x] = calcblock[cbo].RawPVsum[i][x] / (double)1298.7;
 		}
-						
-		//reset the old calcbuffer to 0
+
+		
+		//Now process the 16 small CT's and put them in the ESP sensor packet. Data ordering in destination according to the MuxTable.
+		for (int i = 0; i < 16; i++)
+		{
+			SensorReading.current[MuxTable[i]] = sqrtf (calcblock[cbo].ADCsquareCurrentsum[i+3] / (double)16.23375);
+			for (int x = 0; x < 3; x++)
+				SensorReading.power[MuxTable[i]].phase[x] = calcblock[cbo].RawPVsum[i+3][x] / (double)1298.7;
+		}
+		
+		//TODO: calculate these 3 values instead of using fixed value's !!!
+		SensorReading.frequency = 0x1A6;
+		SensorReading.angle[0] = 0x8E;
+		SensorReading.angle[1] = 0;
+		
+		//Sensor data packet is ready, so we can now reset the old calcbuffer to 0
 		uint8_t* idp = &calcblock[cbo];
 		for (int x = 0; x < __SIZE_OF_VAR__(calcblock[cbo]); x++)
 			*(uint8_t*)(idp+x) = 0;
+			
+		//And create the header
+		SensorReading.unknown = 0x52;
+		SensorReading.sequence_num++; 
+		
+		
+		//Calculate the header's checksum byte
+		uint8_t EORvalue = 0x1D;
+		uint8_t* NextSensorbyte = (uint8_t*) &SensorReading;
+		uint8_t* EORbyte = (uint8_t *) &EORTable;
+		
+		NextSensorbyte = NextSensorbyte + 2; //Skip first 2 bytes
+		for (int i = 0; i < ESPpacketlength-2; i++)
+		{
+			EORvalue = EORvalue ^ *NextSensorbyte;
+			EORvalue = *(EORbyte + EORvalue);
+			NextSensorbyte++;
+		}
+		
+		SensorReading.checksum = EORvalue;
+		SensorReading.is_unread = 3;
 	}
 }
 
@@ -830,6 +876,10 @@ int main(void)
 	for (int x = 0; x < __SIZE_OF_VAR__(calcblock); x++)
 		*(uint8_t*)(idp+x) = 0;
 			
+	idp = &SensorReading;
+	for (int x = 0; x < __SIZE_OF_VAR__(SensorReading); x++)
+		*(uint8_t*)(idp+x) = 0;
+				
 	for (int i = 0; i < 22; i++)
 		averages[i] = 0;
 	

@@ -442,7 +442,11 @@ void irq_handler_sercom1(void) //We've configured sercom to use IRQ sources "Dat
 		if ((REG_SERCOM1_I2CS_STATUS & 8) == 8) //DIR == 1 = Master read operation is in progress.
 		{
 			if (ESPbyteIndex <  ESPpacketlength)
-				REG_SERCOM1_I2CS_DATA = *(uint8_t*)(&SensorReading+ESPbyteIndex); //write data
+			{
+				uint8_t* px = &SensorReading;
+				px = px + ESPbyteIndex;
+				REG_SERCOM1_I2CS_DATA = *px; //write data
+			}
 			else
 				REG_SERCOM1_I2CS_DATA = 0xFF;
 				

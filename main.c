@@ -703,7 +703,7 @@ void COnfigSerCom1 ()
 	do {
   	} while (REG_SERCOM1_I2CS_SYNCBUSY != 0);
   	
-  	REG_SERCOM1_I2CS_ADDR = 0xC8; //the as address
+  	REG_SERCOM1_I2CS_ADDR = 0xC8; //1100 1000, TENBITEN = 0, so address is: 1100100 = 0x64. GENCEN = 0 (General call address recognition disabled)
   	REG_SERCOM1_I2CS_CTRLA = 0x100012;//0001 0000 - 0000 0000 - 0001 0010, slave config(!), 50-100ns hold time, enable, 
   					   //Standard-mode (Sm) up to 100 kHz and Fast-mode (Fm) up to 400 kHz
 	do {

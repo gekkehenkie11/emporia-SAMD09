@@ -119,7 +119,7 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 
 bool alldataready = false;
 bool dmabool = false;
-uint8_t ESPbyteIndex = 0; 
+uint16_t ESPbyteIndex = 0; 
 
 uint8_t temp = 0;
 uint8_t DMAresultIndex = 0;
@@ -468,6 +468,20 @@ void irq_handler_sercom1(void) //We've configured sercom to use IRQ sources "Dat
 	}
 }
 
+void  enableDMA ()
+{
+	if (dmabool == false)
+	{
+		dmabool = true;
+		DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
+		DMAdescriptor.SRCADDR = &REG_ADC_RESULT;//Source address
+		DMAdescriptor.DSTADDR = &DMAresults[DMAresultIndex+1][0] ;//Destination address + (transaction length), see manual
+		DMAdescriptor.DESCADDR = 0;	
+		REG_DMAC_CHID = 0;
+		REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;
+	}
+}
+
 void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Complete interrupt and Channel Transfer Error interrupt.
 {
 
@@ -581,20 +595,6 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 		
 		
 	REG_PORT_OUTCLR = 0x2000000;//set pin 25 low.
-}
-
-void  enableDMA ()
-{
-	if (dmabool == false)
-	{
-		dmabool = true;
-		DMAdescriptor.BTCNT = 8;//BTCNT, number of beats per transaction. We're moving 8 ADC results each time.
-		DMAdescriptor.SRCADDR = &REG_ADC_RESULT;//Source address
-		DMAdescriptor.DSTADDR = &DMAresults[DMAresultIndex+1][0] ;//Destination address + (transaction length), see manual
-		DMAdescriptor.DESCADDR = 0;	
-		REG_DMAC_CHID = 0;
-		REG_DMAC_CHCTRLA = REG_DMAC_CHCTRLA | 2;//Enable the DMA channel;
-	}
 }
 
 void Check_and_sendESPpacket()

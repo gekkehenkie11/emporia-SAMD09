@@ -119,7 +119,7 @@ typedef volatile       uint32_t RoReg;   /**< Read only 32-bit register (volatil
 
 bool alldataready = false;
 bool dmabool = false;
-uint16_t ESPbyteIndex = 0; 
+uint32_t ESPbyteIndex = 0; 
 
 uint8_t temp = 0;
 uint8_t DMAresultIndex = 0;

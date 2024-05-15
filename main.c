@@ -212,7 +212,7 @@ struct CalcBlocType {
 int32_t ADCCurrentsum[19]; //all ADC currents summed up. Max 12987 times FFFF = 32BA CD45, so 4 bytes are enough. 
 int64_t ADCVoltsquaresum[3];
 int32_t ADCVoltagesum[3]; 
-int64_t ADCsquareCurrentsum[19]; //8 bytes. Signed want we adden alleen positieven
+int64_t ADCsquareCurrentsum[19]; 
 int64_t RawPVsum[19][3];
 
 uint16_t SampleCounter; //Keeps track of the amount of samples it has taken for each ESP packet.
@@ -876,6 +876,7 @@ int main(void)
 {
 	REG_NVMCTRL_CTRLB = 6;
 	
+	//Let's start with clean blocks
 	uint8_t* idp = &calcblock;
 	for (int x = 0; x < __SIZE_OF_VAR__(calcblock); x++)
 		*(uint8_t*)(idp+x) = 0;

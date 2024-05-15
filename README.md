@@ -1,2 +1,1 @@
-Firmware replacement for the Samd09 chip on the Emporia VUE2. It works but I still need to do the frequency/voltage degree calculations, currently those values are hard coded
-Everything else should work fine!
+Open Source Firmware replacement for the Samd09 chip on the Emporia VUE2. As of now this is supposed to do the exact same thing as the original Firmware

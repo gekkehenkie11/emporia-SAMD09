@@ -127,8 +127,8 @@ int16_t DMAresults[6][8]; //We copy the 8 ADC results to this buffer using DMA
 			//Layout: MainCT1_V, MainCT1_A, MainCT2_V, MainCT2_A, MainCT_3_V, MainCT_3_A, Mux1_A, Mux2_A
 
 //Something temporarily, currently to analyze results			
-uint16_t testindex = 0;
-uint16_t testresults[0x200];
+//uint16_t testindex = 0;
+//uint16_t testresults[0x200];
 
 uint8_t MuxCounter = 0; //Varies between 0 and 7 to switch between the 8 muxes, each serving 2 50A CT's			
 uint32_t outputpinTable [8] = { 0x1000000, 0x1010000, 0x1020000, 0x1030000, 0, 0x10000, 0x20000, 0x30000 }; //all possible combinations of pin 16, 17 and 24.
@@ -184,8 +184,7 @@ struct __attribute__((__packed__)) SensorReadingType
     ReadingPowerEntry power[19];
 
     uint16_t voltage[3];
-    uint16_t frequency;
-    uint16_t angle[2];
+    uint16_t Cyclecount[3];  // First one is the amount of samples between Ct1 V zero crossings. 2nd and 3rd are CT2 and CT3 crossing after CT1 crossed.
     uint16_t current[19];
 
     uint16_t end;
@@ -215,16 +214,15 @@ int32_t ADCVoltagesum[3];
 int64_t ADCsquareCurrentsum[19]; 
 int64_t RawPVsum[19][3];
 
+uint32_t CtCycles[3]; //First one counts the amount of cycles between the voltage1 zerocrossings to the positive. 
+		       //The next two the zerocrossings for those 2 CT's after that CT1 crossing.
+uint16_t AmountCtCycles[3];
 uint16_t SampleCounter; //Keeps track of the amount of samples it has taken for each ESP packet.
-uint32_t Ct1Cycles;
-uint16_t AmountC1Cycles;
-uint32_t Ct2Cycles;
-uint16_t AmountC2Cycles;
-uint32_t Ct3Cycles;
-uint16_t AmountC3Cycles;
 } calcblock[2]; //double buffered
-int8_t cbi = 0; //calcblock index varies between 0 and 1 for the double buffer
 
+int8_t cbi = 0; //calcblock index varies between 0 and 1 for the double buffer
+uint16_t FreqCT = 0; //used to calculate the amount of samples between Voltage (CT1) zerocrossings.
+uint8_t CTC[3] = { 0, 0, 0 }; //used to calculate FreqCT and the voltage degrees
 
 extern unsigned int _etext;
 extern unsigned int _data;
@@ -529,7 +527,7 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 
 	int a = 0;
 	int dif1;
-
+	FreqCT++;
 
 	//Now process the ADC results! 
 	
@@ -551,11 +549,51 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 		calcblock[cbi].ADCVoltagesum[ct] += DMAresults[lastindex][a]; //Save the sum of all ADC Voltages. At DMAresults 0,2,4. For voltages we always take the latest buffer.
 		dif1 = DMAresults[lastindex][a] - averages[ct];
 		calcblock[cbi].ADCVoltsquaresum[ct] += dif1 * dif1;   
+
+		//Now count the zerocrossing cycles for the Voltage1 and the differences with V2 and V3.
+		//This will yield the voltage (CT1) frequency and the angle between the voltages.
+		//We're going to look for zero crossings (to the positive) of V1 and count the amount of cycles between two of those.
+		//We define a zero crossing as:
+		// 1) We want to see 40 times a voltage below -100, to confirm we're in the negative part of the wave. 
+		// 2) Then we'll wait for 3 times a positive in a row! That counts as a crossing.
 		
+		//For CT2 and CT3 we count zero crossings (to the positive) after CT1 crossed (to the positive), so that will yield the voltage degrees.
+
+		if (CTC[ct] == 43) // = 40 + 3
+		{
+			if (dif1 < 1) //See if there's a false positive and the latest voltage actually is negative. 
+				CTC[ct] = 40;              //If so, reset counter to 40  (indicating we need again 3 positives in a row from now on!)
+			else
+			{
+				calcblock[cbi].CtCycles[ct] += FreqCT; //We've had 40 negatives in a row and then 3 positives in a row!
+				calcblock[cbi].AmountCtCycles[ct]++;   //So now save the cycles between zerocrossing and add it to the total for averaging lateron.
+			
+				if (ct == 0)
+					FreqCT = 0;  
+				
+				CTC[ct] = 0; //start from 0 again, so we need 40 negatives in a row from now on.
+			}
+			
+		}
+		else if (CTC[ct] < 40)
+		{
+			if (dif1 >= -100)  //we want a voltage < -100. Otherwise reset counter and we want 40 in a row again!
+				CTC[ct] = 0;
+			else
+				CTC[ct]++; //Increase the amount of times that we've counted voltages < -100
+					   //So to confirm we're in the negative zone. We want 40 in a row.
+		}
+		else if (dif1 < 1)
+			CTC[ct] = 40; //hold (or reset to) 40 if we had 40 times a Voltage below -100 in a row, but latest sample is still negative.
+		else
+			CTC[ct]++; //Now the voltage has gone (zero or) positive and we've seen at least 40 negatives one before! 	
+			
+					
 		//Process the currents for the 3 mains
 		calcblock[cbi].ADCCurrentsum[ct] += DMAresults[lastindexMin2][a+1]; //Save the sum of all ADC currents (at DMA 1,3,5)
 		dif1 = DMAresults[lastindexMin2][a+1] - averages[ct+3];
 		calcblock[cbi].ADCsquareCurrentsum[ct] += dif1 * dif1; 
+
 		
 		//Process the RawPV's for the 3 mains
 		for (int i = 0; i < 3; i++)
@@ -563,8 +601,10 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 			//int64_t RawPVsum[19][3];
 			calcblock[cbi].RawPVsum[ct][i] -= dif1 * (DMAresults[lastindex][i*2] - averages[i]);  //current * volts (at DMAresults 0,2,4)
 		}
-
-		a += 2;		
+		
+		
+		a += 2;
+				
 	}
 
 	//Process the 2 muxed small CT's
@@ -592,10 +632,10 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 	
 
 	//Right now for testing purposes, save DMA results for CT2 to a buffer to analyze.
-	testresults[testindex] = DMAresults[lastindex][2];
-	testindex++;
-	if (testindex >= 0x200)
-		testindex = 0;
+	//testresults[testindex] = DMAresults[lastindex][2];
+	//testindex++;
+	//if (testindex >= 0x200)
+	//	testindex = 0;
 		
 		
 	REG_PORT_OUTCLR = 0x2000000;//set pin 25 low.
@@ -630,7 +670,6 @@ void Check_and_sendESPpacket()
 				averages[6+i] = 0;			
 		}
 		
-		
 		//Now put it all in the ESP packet buffer
 		for (int i = 0; i < 3; i++)
 		{
@@ -638,9 +677,15 @@ void Check_and_sendESPpacket()
 			SensorReading.current[i] = sqrtf (calcblock[cbo].ADCsquareCurrentsum[i] / (double)129.87);
 			for (int x = 0; x < 3; x++)
 				SensorReading.power[i].phase[x] = calcblock[cbo].RawPVsum[i][x] / (double)1298.7;
+			
+			if (calcblock[cbo].AmountCtCycles[i] == 0) //make sure we dont divide by 0.
+				SensorReading.Cyclecount[i] = 0;
+			else	
+				SensorReading.Cyclecount[i] = calcblock[cbo].CtCycles[i] /  calcblock[cbo].AmountCtCycles[i];
+				
+				
 		}
 
-		
 		//Now process the 16 small CT's and put them in the ESP sensor packet. Data ordering in destination according to the MuxTable.
 		for (int i = 0; i < 16; i++)
 		{
@@ -648,11 +693,6 @@ void Check_and_sendESPpacket()
 			for (int x = 0; x < 3; x++)
 				SensorReading.power[MuxTable[i]].phase[x] = calcblock[cbo].RawPVsum[i+3][x] / (double)1298.7;
 		}
-		
-		//TODO: calculate these 3 values instead of using fixed value's !!!
-		SensorReading.frequency = 0x1A6;
-		SensorReading.angle[0] = 0x8E;
-		SensorReading.angle[1] = 0;
 		
 		//Sensor data packet is ready, so we can now reset the old calcbuffer to 0
 		uint8_t* idp = &calcblock[cbo];

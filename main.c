@@ -512,7 +512,7 @@ void irq_handler_dmac(void) //We've configured it to enable Channel Transfer Com
 	MuxCounter = MuxCounter & 7; //max 7
 	
 	REG_PORT_OUTSET = 0x2000000;//00000010 00000000 00000000 00000000, so pin 25 high.
-	REG_PORT_OUT = ((REG_PORT_OUT ^ outputpinTable[Muxnr]) & 0x1030000) ^ REG_PORT_OUT; //0x1030000 = 00000001 00000011 00000000 00000000 = pins 16, 17, 24.
+	REG_PORT_OUT = ((REG_PORT_OUT ^ outputpinTable[MuxCounter]) & 0x1030000) ^ REG_PORT_OUT; //0x1030000 = 00000001 00000011 00000000 00000000 = pins 16, 17, 24.
 	
 	enableDMA();
 	

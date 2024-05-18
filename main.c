@@ -691,7 +691,7 @@ void Check_and_sendESPpacket()
 		{
 			SensorReading.current[MuxTable[i]] = sqrtf (calcblock[cbo].ADCsquareCurrentsum[i+3] / (double)16.23375);
 			for (int x = 0; x < 3; x++)
-				SensorReading.power[MuxTable[i]].phase[x] = calcblock[cbo].RawPVsum[i+3][x] / (double)1298.7;
+				SensorReading.power[MuxTable[i]].phase[x] = (double) calcblock[cbo].RawPVsum[i+3][x] / (double)162.3375;
 		}
 		
 		//Sensor data packet is ready, so we can now reset the old calcbuffer to 0
